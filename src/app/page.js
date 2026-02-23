@@ -1,65 +1,411 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from 'react';
+import { clients } from '@/lib/clients';
+import ClientCard from '@/components/ClientCard';
+import AdTable from '@/components/AdTable';
+import PipelineFunnel from '@/components/PipelineFunnel';
+import LeadsTable from '@/components/LeadsTable';
 
 export default function Home() {
+  const [data, setData] = useState(null);
+  const [leadsData, setLeadsData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [view, setView] = useState('overview'); // 'overview' | 'comparison' | 'pipeline'
+  const [days, setDays] = useState(30);
+  const [filterClient, setFilterClient] = useState('all'); // 'all' or a client slug
+
+  useEffect(() => {
+    fetchData();
+  }, [days]);
+
+  async function fetchData() {
+    setLoading(true);
+    setError(null);
+    try {
+      const [adsRes, leadsRes] = await Promise.all([
+        fetch(`/api/ads?days=${days}`),
+        fetch(`/api/leads?days=${days}`),
+      ]);
+      if (!adsRes.ok) throw new Error('Failed to fetch');
+      const adsJson = await adsRes.json();
+      setData(adsJson);
+
+      if (leadsRes.ok) {
+        const leadsJson = await leadsRes.json();
+        setLeadsData(leadsJson);
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Combine all ads across clients for comparison view
+  const allAds =
+    data?.flatMap(
+      (d) =>
+        d.ads?.map((ad) => ({
+          ...ad,
+          clientName: d.client.name,
+          clientSlug: d.client.slug,
+        })) || []
+    ) || [];
+
+  // Filter ads by selected client
+  const filteredAds =
+    filterClient === 'all'
+      ? allAds
+      : allAds.filter((ad) => ad.clientSlug === filterClient);
+
+  // Summary totals across all clients (always show full totals in summary bar)
+  const totals = data
+    ? data.reduce(
+        (acc, d) => {
+          if (!d.summary) return acc;
+          acc.spend += d.summary.totalSpend;
+          acc.leads += d.summary.totalLeads;
+          acc.impressions += d.summary.totalImpressions;
+          acc.linkClicks += d.summary.totalLinkClicks;
+          return acc;
+        },
+        { spend: 0, leads: 0, impressions: 0, linkClicks: 0 }
+      )
+    : null;
+
+  const pipeline = leadsData?.pipeline;
+  const leads = leadsData?.leads || [];
+
+  // Filter leads by client
+  const filteredLeads =
+    filterClient === 'all'
+      ? leads
+      : leads.filter((l) => l.clientSlug === filterClient);
+
+  // Recalculate pipeline for filtered leads
+  const filteredPipeline =
+    filterClient === 'all'
+      ? pipeline
+      : filteredLeads.length > 0
+        ? {
+            total: filteredLeads.length,
+            pickedUp: filteredLeads.filter((l) => l.pickedUp).length,
+            meetingsBooked: filteredLeads.filter((l) => l.meetingBooked).length,
+            strategyCalls: filteredLeads.filter((l) => l.strategyCall).length,
+            followUps: filteredLeads.filter((l) => l.followUp).length,
+            closed: filteredLeads.filter((l) => l.closed).length,
+          }
+        : { total: 0, pickedUp: 0, meetingsBooked: 0, strategyCalls: 0, followUps: 0, closed: 0 };
+
+  // Client filter dropdown component
+  const ClientFilter = () => (
+    <select
+      value={filterClient}
+      onChange={(e) => setFilterClient(e.target.value)}
+      className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer"
+      style={{
+        background: 'var(--color-bg-card)',
+        border: '1px solid var(--color-border)',
+        color: filterClient === 'all' ? 'var(--color-text-muted)' : 'var(--color-accent-light)',
+        outline: 'none',
+      }}
+    >
+      <option value="all">All Clients</option>
+      {clients.map((c) => (
+        <option key={c.slug} value={c.slug}>
+          {c.name}
+        </option>
+      ))}
+    </select>
+  );
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.js file.
+    <div>
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">
+            All Clients Overview
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p
+            className="text-xs mt-1"
+            style={{ color: 'var(--color-text-muted)' }}
+          >
+            Meta ads performance + sales pipeline across all clients
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Time range selector */}
+          <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+            {[
+              { label: '7d', value: 7 },
+              { label: '14d', value: 14 },
+              { label: '30d', value: 30 },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setDays(opt.value)}
+                className="px-3 py-1.5 text-xs font-medium transition-colors"
+                style={{
+                  background:
+                    days === opt.value
+                      ? 'var(--color-accent)'
+                      : 'transparent',
+                  color:
+                    days === opt.value
+                      ? 'white'
+                      : 'var(--color-text-muted)',
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          {/* View toggle */}
+          <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+            {[
+              { label: 'Clients', value: 'overview' },
+              { label: 'Pipeline', value: 'pipeline' },
+              { label: 'All Ads', value: 'comparison' },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setView(opt.value)}
+                className="px-3 py-1.5 text-xs font-medium transition-colors"
+                style={{
+                  background:
+                    view === opt.value
+                      ? 'var(--color-accent)'
+                      : 'transparent',
+                  color:
+                    view === opt.value
+                      ? 'white'
+                      : 'var(--color-text-muted)',
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={fetchData}
+            className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+            style={{
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text-muted)',
+            }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            Refresh
+          </button>
         </div>
-      </main>
+      </div>
+
+      {/* Loading State */}
+      {loading && (
+        <div className="flex flex-col items-center justify-center py-20">
+          <div className="loading-pulse text-lg mb-2">Loading...</div>
+          <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            Fetching data from Google Sheets
+          </div>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && !loading && (
+        <div
+          className="glass-card p-6 text-center"
+          style={{ borderColor: 'var(--color-red)' }}
+        >
+          <div className="text-sm mb-2" style={{ color: 'var(--color-red)' }}>
+            Failed to load data
+          </div>
+          <div className="text-xs mb-4" style={{ color: 'var(--color-text-muted)' }}>
+            {error}
+          </div>
+          <button
+            onClick={fetchData}
+            className="px-4 py-2 text-xs font-medium rounded-lg mt-2 transition-colors"
+            style={{
+              background: 'var(--color-accent)',
+              color: 'white',
+            }}
+          >
+            Try Again
+          </button>
+        </div>
+      )}
+
+      {/* Data loaded */}
+      {!loading && !error && data && (
+        <>
+          {/* Summary Bar */}
+          {totals && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+              <div className="glass-card p-4">
+                <div
+                  className="text-[10px] uppercase tracking-wider font-medium mb-1"
+                  style={{ color: 'var(--color-text-muted)' }}
+                >
+                  Total Spend
+                </div>
+                <div className="text-xl font-bold">
+                  ${totals.spend.toFixed(2)}
+                </div>
+              </div>
+              <div className="glass-card p-4">
+                <div
+                  className="text-[10px] uppercase tracking-wider font-medium mb-1"
+                  style={{ color: 'var(--color-text-muted)' }}
+                >
+                  Total Leads
+                </div>
+                <div
+                  className="text-xl font-bold"
+                  style={{
+                    color:
+                      totals.leads > 0
+                        ? 'var(--color-green)'
+                        : 'var(--color-red)',
+                  }}
+                >
+                  {totals.leads}
+                </div>
+              </div>
+              <div className="glass-card p-4">
+                <div
+                  className="text-[10px] uppercase tracking-wider font-medium mb-1"
+                  style={{ color: 'var(--color-text-muted)' }}
+                >
+                  Avg CPL
+                </div>
+                <div className="text-xl font-bold">
+                  {totals.leads > 0
+                    ? `$${(totals.spend / totals.leads).toFixed(2)}`
+                    : '-'}
+                </div>
+              </div>
+              <div className="glass-card p-4">
+                <div
+                  className="text-[10px] uppercase tracking-wider font-medium mb-1"
+                  style={{ color: 'var(--color-text-muted)' }}
+                >
+                  Meetings Booked
+                </div>
+                <div
+                  className="text-xl font-bold"
+                  style={{
+                    color:
+                      pipeline?.meetingsBooked > 0
+                        ? 'var(--color-orange)'
+                        : 'var(--color-text-muted)',
+                  }}
+                >
+                  {pipeline?.meetingsBooked || 0}
+                </div>
+              </div>
+              <div className="glass-card p-4">
+                <div
+                  className="text-[10px] uppercase tracking-wider font-medium mb-1"
+                  style={{ color: 'var(--color-text-muted)' }}
+                >
+                  Cost / Meeting
+                </div>
+                <div
+                  className="text-xl font-bold"
+                  style={{ color: 'var(--color-orange)' }}
+                >
+                  {pipeline?.meetingsBooked > 0
+                    ? `$${(totals.spend / pipeline.meetingsBooked).toFixed(2)}`
+                    : '-'}
+                </div>
+              </div>
+              <div className="glass-card p-4">
+                <div
+                  className="text-[10px] uppercase tracking-wider font-medium mb-1"
+                  style={{ color: 'var(--color-text-muted)' }}
+                >
+                  Lead &rarr; Meeting
+                </div>
+                <div
+                  className="text-xl font-bold"
+                  style={{
+                    color:
+                      pipeline?.meetingsBooked > 0
+                        ? 'var(--color-green)'
+                        : 'var(--color-text-muted)',
+                  }}
+                >
+                  {pipeline?.total > 0
+                    ? `${((pipeline.meetingsBooked / pipeline.total) * 100).toFixed(0)}%`
+                    : '-'}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Client Cards View */}
+          {view === 'overview' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {data.map((d, i) => (
+                <ClientCard
+                  key={i}
+                  client={d.client}
+                  summary={d.summary}
+                  ads={d.ads}
+                  pipelineData={leadsData?.clientPipelines?.[d.client.slug]}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Pipeline View */}
+          {view === 'pipeline' && (
+            <div>
+              {/* Client filter */}
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold">Sales Pipeline</h2>
+                <ClientFilter />
+              </div>
+              <div className="mb-6">
+                <PipelineFunnel
+                  pipeline={filteredPipeline}
+                  totalSpend={totals?.spend}
+                />
+              </div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-semibold">
+                  {filterClient === 'all' ? 'All' : clients.find(c => c.slug === filterClient)?.name} Leads ({filteredLeads.length})
+                </h2>
+              </div>
+              <LeadsTable leads={filteredLeads} showClient={filterClient === 'all'} />
+            </div>
+          )}
+
+          {/* All Ads Comparison View */}
+          {view === 'comparison' && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h2 className="text-sm font-semibold">
+                    {filterClient === 'all' ? 'All Ads Across Clients' : `${clients.find(c => c.slug === filterClient)?.name} Ads`}
+                  </h2>
+                  <span
+                    className="text-xs"
+                    style={{ color: 'var(--color-text-muted)' }}
+                  >
+                    {filteredAds.length} ads total | Sorted by leads (click headers
+                    to sort)
+                  </span>
+                </div>
+                <ClientFilter />
+              </div>
+              <AdTable ads={filteredAds} showClient={filterClient === 'all'} />
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

@@ -1,0 +1,97 @@
+import { NextResponse } from 'next/server';
+import { clients } from '@/lib/clients';
+import {
+  fetchSheetData,
+  aggregateAds,
+  getClientSummary,
+  getLastNDays,
+} from '@/lib/sheets';
+
+export async function GET(request) {
+  const { searchParams } = new URL(request.url);
+  const slug = searchParams.get('client');
+  const days = parseInt(searchParams.get('days') || '30', 10);
+
+  try {
+    if (slug) {
+      // Single client
+      const client = clients.find((c) => c.slug === slug);
+      if (!client) {
+        return NextResponse.json({ error: 'Client not found' }, { status: 404 });
+      }
+
+      // Clients without an ad performance sheet (e.g. Static Shift)
+      // return empty ad data — their pipeline data comes from /api/leads
+      if (!client.sheetId) {
+        return NextResponse.json({
+          client: { name: client.name, slug: client.slug },
+          summary: {
+            totalSpend: 0,
+            totalLeads: 0,
+            totalImpressions: 0,
+            totalClicks: 0,
+            totalLinkClicks: 0,
+            cpl: 0,
+            uniqueAds: 0,
+            dateRange: null,
+            totalRows: 0,
+          },
+          ads: [],
+          rawRows: [],
+        });
+      }
+
+      const rows = await fetchSheetData(client.sheetId, client.sheetTab);
+      const recent = getLastNDays(rows, days);
+      const ads = aggregateAds(recent);
+      const summary = getClientSummary(recent);
+      return NextResponse.json({
+        client: { name: client.name, slug: client.slug },
+        summary,
+        ads,
+        rawRows: recent,
+      });
+    }
+
+    // All clients overview
+    const results = await Promise.allSettled(
+      clients.map(async (client) => {
+        // Skip clients without ad performance sheets
+        if (!client.sheetId) {
+          return {
+            client: { name: client.name, slug: client.slug },
+            summary: null,
+            ads: [],
+          };
+        }
+
+        const rows = await fetchSheetData(client.sheetId, client.sheetTab);
+        const recent = getLastNDays(rows, days);
+        const ads = aggregateAds(recent);
+        const summary = getClientSummary(recent);
+        return {
+          client: { name: client.name, slug: client.slug },
+          summary,
+          ads,
+        };
+      })
+    );
+
+    const data = results.map((r, i) => {
+      if (r.status === 'fulfilled') return r.value;
+      return {
+        client: { name: clients[i].name, slug: clients[i].slug },
+        summary: null,
+        ads: [],
+        error: r.reason?.message || 'Failed to fetch',
+      };
+    });
+
+    return NextResponse.json(data);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error.message || 'Failed to fetch data' },
+      { status: 500 }
+    );
+  }
+}
