@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-export default function ClientCard({ client, summary, ads, pipelineData }) {
+export default function ClientCard({ client, summary, ads, pipelineData, days }) {
   const hasLeads = summary && summary.totalLeads > 0;
   const leadingAds = ads ? ads.filter((a) => a.totalLeads > 0).length : 0;
   const zeroLeadAds = ads ? ads.filter((a) => a.totalLeads === 0).length : 0;
@@ -174,15 +174,15 @@ export default function ClientCard({ client, summary, ads, pipelineData }) {
               )}
             </div>
 
-            {/* Date range */}
-            {summary.dateRange && (
-              <div
-                className="text-[10px] mt-2"
-                style={{ color: 'var(--color-text-muted)' }}
-              >
-                {summary.dateRange.from} to {summary.dateRange.to}
-              </div>
-            )}
+            {/* Data coverage */}
+            <div
+              className="text-[10px] mt-2"
+              style={{ color: 'var(--color-text-muted)' }}
+            >
+              {summary.totalRows > 0
+                ? `${summary.totalRows} data points`
+                : `No data in last ${days || 30} days`}
+            </div>
           </>
         ) : (
           <div

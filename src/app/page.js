@@ -133,7 +133,13 @@ export default function Home() {
             className="text-xs mt-1"
             style={{ color: 'var(--color-text-muted)' }}
           >
-            Meta ads performance + sales pipeline across all clients
+            {(() => {
+              const end = new Date();
+              const start = new Date();
+              start.setDate(start.getDate() - days);
+              const fmt = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+              return `${fmt(start)} – ${fmt(end)} · Last ${days} days`;
+            })()}
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
@@ -355,6 +361,7 @@ export default function Home() {
                   summary={d.summary}
                   ads={d.ads}
                   pipelineData={leadsData?.clientPipelines?.[d.client.slug]}
+                  days={days}
                 />
               ))}
             </div>
