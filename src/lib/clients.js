@@ -19,7 +19,7 @@ export const clients = [
   {
     slug: 'corbel',
     name: 'Corbel',
-    sheetId: '1WKcbEPkbO-ljR5xJHURWMdg1ip6MiNwFsdmQK52hp6g',
+    sheetId: '1TNBlbHauHOkcMNi16NzJt94Zy_qet7QhOVKIuiOmD0k',
     sheetTab: 'Ad Performance',
     fbAdAccountId: 'act_3634319663373564',
     slackChannelId: 'C094VED5TM2',
