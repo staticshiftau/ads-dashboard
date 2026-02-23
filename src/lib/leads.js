@@ -183,18 +183,15 @@ export function matchLeadToClient(lead, clientDataMap) {
 
 /**
  * Process all leads into structured data with pipeline stats.
- * The main leads tracker is for Static Shift's own ads.
- * When client-specific leads sheets exist, those will be matched to clients.
- * For now, all leads from the main tracker belong to 'static-shift'.
+ * The leads tracker sheets are ONLY for Static Shift's own ads.
+ * Other clients don't have leads tracker sheets — their pipeline is not tracked here.
  */
 export function processLeads(rawLeads, clientDataMap) {
   const leads = rawLeads.map(parseLead);
 
-  // Try to match leads to specific clients first,
-  // fallback to 'static-shift' (since the main tracker is SS's own ads)
+  // All leads from the main tracker belong to Static Shift
   leads.forEach((lead) => {
-    const matched = matchLeadToClient(lead, clientDataMap);
-    lead.clientSlug = matched || 'static-shift';
+    lead.clientSlug = 'static-shift';
   });
 
   return leads;
