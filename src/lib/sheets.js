@@ -10,14 +10,26 @@ export async function fetchSheetData(sheetId, sheetTab = 'Ad Performance') {
   let lastError;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const res = await fetch(url, { next: { revalidate: 300 } }); // cache 5 min
+      const res = await fetch(url, {
+        cache: 'no-store',
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+      });
       if (!res.ok) throw new Error(`Sheet fetch failed: ${res.status}`);
       const text = await res.text();
+      // Google may return HTML instead of JSON if it blocks the request
+      if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
+        throw new Error('Google returned HTML instead of data — may be rate-limited');
+      }
       return parseSheetResponse(text);
     } catch (err) {
       lastError = err;
       if (attempt < 2) {
-        await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+        await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
       }
     }
   }

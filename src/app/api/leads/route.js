@@ -8,10 +8,16 @@ import {
   filterLeadsByDays,
 } from '@/lib/leads';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const slug = searchParams.get('client'); // optional: filter by client
   const days = parseInt(searchParams.get('days') || '30', 10);
+
+  const cacheHeaders = {
+    'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+  };
 
   try {
     // 1. Fetch all leads from tracker sheets
@@ -75,7 +81,7 @@ export async function GET(request) {
       pipeline,
       clientPipelines,
       totalLeads: leads.length,
-    });
+    }, { headers: cacheHeaders });
   } catch (error) {
     return NextResponse.json(
       { error: error.message || 'Failed to fetch leads data' },

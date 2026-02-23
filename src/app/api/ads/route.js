@@ -7,10 +7,16 @@ import {
   getLastNDays,
 } from '@/lib/sheets';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const slug = searchParams.get('client');
   const days = parseInt(searchParams.get('days') || '30', 10);
+
+  const cacheHeaders = {
+    'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+  };
 
   try {
     if (slug) {
@@ -38,7 +44,7 @@ export async function GET(request) {
           },
           ads: [],
           rawRows: [],
-        });
+        }, { headers: cacheHeaders });
       }
 
       const rows = await fetchSheetData(client.sheetId, client.sheetTab);
@@ -50,7 +56,7 @@ export async function GET(request) {
         summary,
         ads,
         rawRows: recent,
-      });
+      }, { headers: cacheHeaders });
     }
 
     // All clients overview
@@ -87,7 +93,7 @@ export async function GET(request) {
       };
     });
 
-    return NextResponse.json(data);
+    return NextResponse.json(data, { headers: cacheHeaders });
   } catch (error) {
     return NextResponse.json(
       { error: error.message || 'Failed to fetch data' },
