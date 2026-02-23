@@ -29,8 +29,8 @@ export default function ClientPage({ params }) {
     setError(null);
     try {
       const [adsRes, leadsRes] = await Promise.all([
-        fetch(`/api/ads?client=${slug}&days=${days}`),
-        fetch(`/api/leads?client=${slug}&days=${days}`),
+        fetch(`/api/ads?client=${slug}&days=${days}`, { cache: 'no-cache' }),
+        fetch(`/api/leads?client=${slug}&days=${days}`, { cache: 'no-cache' }),
       ]);
 
       if (!adsRes.ok) throw new Error('Failed to fetch ads data');
