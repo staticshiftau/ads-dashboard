@@ -166,12 +166,14 @@ export function getClientSummary(rows) {
 }
 
 /**
- * Get the last N days of data from rows
+ * Get data from the last N calendar days (not N unique dates in the sheet).
+ * This ensures 7d/14d/30d filters match actual calendar dates.
  */
 export function getLastNDays(rows, n = 7) {
-  const uniqueDates = [...new Set(rows.map((r) => r['Date']))]
-    .sort()
-    .reverse();
-  const cutoffDates = uniqueDates.slice(0, n);
-  return rows.filter((r) => cutoffDates.includes(r['Date']));
+  const today = new Date();
+  const cutoff = new Date(today);
+  cutoff.setDate(cutoff.getDate() - n);
+  const cutoffStr = cutoff.toISOString().split('T')[0]; // "YYYY-MM-DD"
+
+  return rows.filter((r) => r['Date'] >= cutoffStr);
 }

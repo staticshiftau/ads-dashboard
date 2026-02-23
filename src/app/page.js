@@ -240,9 +240,65 @@ export default function Home() {
       {/* Data loaded */}
       {!loading && !error && data && (
         <>
-          {/* Summary Bar */}
+          {/* Summary Bar — Meetings first (what matters most) */}
           {totals && (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+              <div className="glass-card p-4" style={{ border: '1px solid rgba(249,115,22,0.3)' }}>
+                <div
+                  className="text-[10px] uppercase tracking-wider font-semibold mb-1"
+                  style={{ color: 'var(--color-orange)' }}
+                >
+                  Meetings Booked
+                </div>
+                <div
+                  className="text-xl font-bold"
+                  style={{
+                    color:
+                      pipeline?.meetingsBooked > 0
+                        ? 'var(--color-orange)'
+                        : 'var(--color-text-muted)',
+                  }}
+                >
+                  {pipeline?.meetingsBooked || 0}
+                </div>
+              </div>
+              <div className="glass-card p-4" style={{ border: '1px solid rgba(249,115,22,0.3)' }}>
+                <div
+                  className="text-[10px] uppercase tracking-wider font-semibold mb-1"
+                  style={{ color: 'var(--color-orange)' }}
+                >
+                  Cost / Meeting
+                </div>
+                <div
+                  className="text-xl font-bold"
+                  style={{ color: pipeline?.meetingsBooked > 0 ? 'var(--color-orange)' : 'var(--color-text-muted)' }}
+                >
+                  {pipeline?.meetingsBooked > 0
+                    ? `$${(totals.spend / pipeline.meetingsBooked).toFixed(2)}`
+                    : '-'}
+                </div>
+              </div>
+              <div className="glass-card p-4">
+                <div
+                  className="text-[10px] uppercase tracking-wider font-medium mb-1"
+                  style={{ color: 'var(--color-text-muted)' }}
+                >
+                  Lead &rarr; Meeting
+                </div>
+                <div
+                  className="text-xl font-bold"
+                  style={{
+                    color:
+                      pipeline?.meetingsBooked > 0
+                        ? 'var(--color-green)'
+                        : 'var(--color-text-muted)',
+                  }}
+                >
+                  {pipeline?.total > 0
+                    ? `${((pipeline.meetingsBooked / pipeline.total) * 100).toFixed(0)}%`
+                    : '-'}
+                </div>
+              </div>
               <div className="glass-card p-4">
                 <div
                   className="text-[10px] uppercase tracking-wider font-medium mb-1"
@@ -283,62 +339,6 @@ export default function Home() {
                 <div className="text-xl font-bold">
                   {totals.leads > 0
                     ? `$${(totals.spend / totals.leads).toFixed(2)}`
-                    : '-'}
-                </div>
-              </div>
-              <div className="glass-card p-4">
-                <div
-                  className="text-[10px] uppercase tracking-wider font-medium mb-1"
-                  style={{ color: 'var(--color-text-muted)' }}
-                >
-                  Meetings Booked
-                </div>
-                <div
-                  className="text-xl font-bold"
-                  style={{
-                    color:
-                      pipeline?.meetingsBooked > 0
-                        ? 'var(--color-orange)'
-                        : 'var(--color-text-muted)',
-                  }}
-                >
-                  {pipeline?.meetingsBooked || 0}
-                </div>
-              </div>
-              <div className="glass-card p-4">
-                <div
-                  className="text-[10px] uppercase tracking-wider font-medium mb-1"
-                  style={{ color: 'var(--color-text-muted)' }}
-                >
-                  Cost / Meeting
-                </div>
-                <div
-                  className="text-xl font-bold"
-                  style={{ color: 'var(--color-orange)' }}
-                >
-                  {pipeline?.meetingsBooked > 0
-                    ? `$${(totals.spend / pipeline.meetingsBooked).toFixed(2)}`
-                    : '-'}
-                </div>
-              </div>
-              <div className="glass-card p-4">
-                <div
-                  className="text-[10px] uppercase tracking-wider font-medium mb-1"
-                  style={{ color: 'var(--color-text-muted)' }}
-                >
-                  Lead &rarr; Meeting
-                </div>
-                <div
-                  className="text-xl font-bold"
-                  style={{
-                    color:
-                      pipeline?.meetingsBooked > 0
-                        ? 'var(--color-green)'
-                        : 'var(--color-text-muted)',
-                  }}
-                >
-                  {pipeline?.total > 0
-                    ? `${((pipeline.meetingsBooked / pipeline.total) * 100).toFixed(0)}%`
                     : '-'}
                 </div>
               </div>

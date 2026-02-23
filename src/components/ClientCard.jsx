@@ -8,6 +8,10 @@ export default function ClientCard({ client, summary, ads, pipelineData }) {
   const zeroLeadAds = ads ? ads.filter((a) => a.totalLeads === 0).length : 0;
   const meetings = pipelineData?.pipeline?.meetingsBooked || 0;
   const pipelineLeads = pipelineData?.leadCount || 0;
+  const costPerMeeting =
+    meetings > 0 && summary?.totalSpend > 0
+      ? summary.totalSpend / meetings
+      : 0;
 
   return (
     <Link href={`/client/${client.slug}`} className="block">
@@ -16,17 +20,6 @@ export default function ClientCard({ client, summary, ads, pipelineData }) {
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-sm">{client.name}</h3>
           <div className="flex items-center gap-2">
-            {meetings > 0 && (
-              <div
-                className="text-[10px] font-medium px-2 py-0.5 rounded-full"
-                style={{
-                  background: 'rgba(249,115,22,0.1)',
-                  color: 'var(--color-orange)',
-                }}
-              >
-                {meetings} meeting{meetings !== 1 ? 's' : ''}
-              </div>
-            )}
             <div
               className="text-[10px] font-medium px-2 py-0.5 rounded-full"
               style={{
@@ -43,8 +36,44 @@ export default function ClientCard({ client, summary, ads, pipelineData }) {
 
         {summary ? (
           <>
-            {/* Metrics row */}
-            <div className="grid grid-cols-4 gap-3 mb-4">
+            {/* Hero: Meetings Booked + Cost per Meeting */}
+            <div className="grid grid-cols-2 gap-3 mb-4 p-3 rounded-lg" style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.15)' }}>
+              <div>
+                <div
+                  className="text-[10px] uppercase tracking-wider mb-1 font-semibold"
+                  style={{ color: 'var(--color-orange)' }}
+                >
+                  Meetings Booked
+                </div>
+                <div
+                  className="text-2xl font-bold"
+                  style={{
+                    color: meetings > 0 ? 'var(--color-orange)' : 'var(--color-text-muted)',
+                  }}
+                >
+                  {meetings}
+                </div>
+              </div>
+              <div>
+                <div
+                  className="text-[10px] uppercase tracking-wider mb-1 font-semibold"
+                  style={{ color: 'var(--color-orange)' }}
+                >
+                  Cost / Meeting
+                </div>
+                <div
+                  className="text-2xl font-bold"
+                  style={{
+                    color: costPerMeeting > 0 ? 'var(--color-orange)' : 'var(--color-text-muted)',
+                  }}
+                >
+                  {costPerMeeting > 0 ? `$${costPerMeeting.toFixed(2)}` : '-'}
+                </div>
+              </div>
+            </div>
+
+            {/* Secondary: Spend, Leads, CPL */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
               <div>
                 <div
                   className="text-[10px] uppercase tracking-wider mb-1"
@@ -52,7 +81,7 @@ export default function ClientCard({ client, summary, ads, pipelineData }) {
                 >
                   Spend
                 </div>
-                <div className="text-lg font-bold">
+                <div className="text-sm font-semibold">
                   ${summary.totalSpend.toFixed(2)}
                 </div>
               </div>
@@ -64,7 +93,7 @@ export default function ClientCard({ client, summary, ads, pipelineData }) {
                   Leads
                 </div>
                 <div
-                  className="text-lg font-bold"
+                  className="text-sm font-semibold"
                   style={{
                     color: hasLeads
                       ? 'var(--color-green)'
@@ -81,26 +110,8 @@ export default function ClientCard({ client, summary, ads, pipelineData }) {
                 >
                   CPL
                 </div>
-                <div className="text-lg font-bold">
+                <div className="text-sm font-semibold">
                   {summary.cpl > 0 ? `$${summary.cpl.toFixed(2)}` : '-'}
-                </div>
-              </div>
-              <div>
-                <div
-                  className="text-[10px] uppercase tracking-wider mb-1"
-                  style={{ color: 'var(--color-text-muted)' }}
-                >
-                  Meetings
-                </div>
-                <div
-                  className="text-lg font-bold"
-                  style={{
-                    color: meetings > 0
-                      ? 'var(--color-orange)'
-                      : 'var(--color-text-muted)',
-                  }}
-                >
-                  {meetings}
                 </div>
               </div>
             </div>
