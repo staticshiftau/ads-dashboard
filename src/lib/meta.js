@@ -140,7 +140,8 @@ export function mergeMetaStatuses(ads, metaData) {
       };
     }
 
-    return { ...ad, statusSource: 'sheet' };
+    // Ad not found in Meta — it's been deleted/renamed, so it's not active
+    return { ...ad, status: 'PAUSED', statusSource: 'meta-not-found' };
   });
 
   // Add new active ads from Meta that aren't in the sheet yet
