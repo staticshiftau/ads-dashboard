@@ -45,7 +45,11 @@ export async function fetchMetaAdStatuses(adAccountId) {
 
       if (json.data) {
         for (const ad of json.data) {
-          statusMap.set(ad.name, ad.effective_status);
+          const existing = statusMap.get(ad.name);
+          // If duplicate ad names exist, prefer ACTIVE over any other status
+          if (!existing || ad.effective_status === 'ACTIVE') {
+            statusMap.set(ad.name, ad.effective_status);
+          }
         }
       }
 
