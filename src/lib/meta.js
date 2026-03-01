@@ -94,9 +94,13 @@ export function mergeMetaStatuses(ads, statusMap) {
     return ads.map((ad) => ({ ...ad, statusSource: 'sheet' }));
   }
 
-  return ads.map((ad) => {
+  // Track which Meta ads were matched to sheet ads
+  const matchedMetaNames = new Set();
+
+  const merged = ads.map((ad) => {
     // Exact match
     let metaStatus = statusMap.get(ad.adName);
+    let matchedName = metaStatus ? ad.adName : null;
 
     // Fallback: case-insensitive trimmed match
     if (!metaStatus) {
@@ -104,12 +108,14 @@ export function mergeMetaStatuses(ads, statusMap) {
       for (const [metaName, status] of statusMap) {
         if (metaName.toLowerCase().trim() === normalizedSheet) {
           metaStatus = status;
+          matchedName = metaName;
           break;
         }
       }
     }
 
     if (metaStatus) {
+      matchedMetaNames.add(matchedName);
       return {
         ...ad,
         status: mapMetaStatus(metaStatus),
@@ -120,4 +126,35 @@ export function mergeMetaStatuses(ads, statusMap) {
 
     return { ...ad, statusSource: 'sheet' };
   });
+
+  // Add new ads from Meta that aren't in the sheet yet
+  for (const [metaName, metaStatus] of statusMap) {
+    if (matchedMetaNames.has(metaName)) continue;
+
+    const mapped = mapMetaStatus(metaStatus);
+    // Only show active or in-review ads — skip old deleted/archived ones
+    if (mapped !== 'ACTIVE' && mapped !== 'IN REVIEW' && mapped !== 'PROCESSING') continue;
+
+    merged.push({
+      adName: metaName,
+      campaignName: '',
+      adSetName: '',
+      status: mapped,
+      metaRawStatus: metaStatus,
+      statusSource: 'meta-only',
+      totalSpend: 0,
+      totalLeads: 0,
+      totalImpressions: 0,
+      totalClicks: 0,
+      totalLinkClicks: 0,
+      days: 0,
+      dates: [],
+      dailyData: [],
+      cpl: 0,
+      costPerLinkClick: 0,
+      cpm: 0,
+    });
+  }
+
+  return merged;
 }
