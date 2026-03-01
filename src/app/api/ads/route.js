@@ -6,6 +6,7 @@ import {
   getClientSummary,
   getLastNDays,
 } from '@/lib/sheets';
+import { fetchMetaAdStatuses, mergeMetaStatuses } from '@/lib/meta';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,10 +48,20 @@ export async function GET(request) {
         }, { headers: cacheHeaders });
       }
 
-      const rows = await fetchSheetData(client.sheetId, client.sheetTab);
+      // Fetch sheet data and Meta statuses in parallel
+      const [rows, metaStatusMap] = await Promise.all([
+        fetchSheetData(client.sheetId, client.sheetTab),
+        client.fbAdAccountId
+          ? fetchMetaAdStatuses(client.fbAdAccountId)
+          : Promise.resolve(null),
+      ]);
+
       const recent = getLastNDays(rows, days);
-      const ads = aggregateAds(recent);
+      let ads = aggregateAds(recent);
+      ads = mergeMetaStatuses(ads, metaStatusMap);
       const summary = getClientSummary(recent);
+      summary.activeAds = ads.filter((a) => a.status === 'ACTIVE').length;
+
       return NextResponse.json({
         client: { name: client.name, slug: client.slug },
         summary,
@@ -71,10 +82,19 @@ export async function GET(request) {
           };
         }
 
-        const rows = await fetchSheetData(client.sheetId, client.sheetTab);
+        const [rows, metaStatusMap] = await Promise.all([
+          fetchSheetData(client.sheetId, client.sheetTab),
+          client.fbAdAccountId
+            ? fetchMetaAdStatuses(client.fbAdAccountId)
+            : Promise.resolve(null),
+        ]);
+
         const recent = getLastNDays(rows, days);
-        const ads = aggregateAds(recent);
+        let ads = aggregateAds(recent);
+        ads = mergeMetaStatuses(ads, metaStatusMap);
         const summary = getClientSummary(recent);
+        summary.activeAds = ads.filter((a) => a.status === 'ACTIVE').length;
+
         return {
           client: { name: client.name, slug: client.slug },
           summary,

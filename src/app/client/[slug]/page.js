@@ -196,7 +196,7 @@ export default function ClientPage({ params }) {
             />
             <MetricCard
               label="Active Ads"
-              value={summary?.uniqueAds || 0}
+              value={summary?.activeAds ?? summary?.uniqueAds ?? 0}
               subtext={
                 zeroLeadAds.length > 0
                   ? `${zeroLeadAds.length} need attention`

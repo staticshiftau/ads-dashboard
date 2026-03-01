@@ -30,6 +30,8 @@ export default function AdTable({ ads, showClient = false }) {
     const s = (status || '').toUpperCase();
     if (s === 'ACTIVE') return 'var(--color-green)';
     if (s === 'PAUSED') return 'var(--color-yellow)';
+    if (s === 'IN REVIEW' || s === 'PROCESSING') return 'var(--color-accent-light)';
+    if (s === 'ARCHIVED') return 'var(--color-text-muted)';
     return 'var(--color-red)';
   };
 
