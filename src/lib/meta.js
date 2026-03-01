@@ -12,7 +12,12 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Fetch all ad statuses for a given Meta ad account.
- * Returns a Map of ad name -> effective_status, or null on failure.
+ * Returns { statusMap, activeNames } or null on failure.
+ *
+ * statusMap: Map<name, status> — for duplicate names, prefers non-ACTIVE
+ *   (sheet ads with historical data are the old/paused version)
+ * activeNames: Set<name> — all names that have at least one ACTIVE version
+ *   (used to surface new active ads not yet in the sheet)
  */
 export async function fetchMetaAdStatuses(adAccountId) {
   const token = process.env.META_ACCESS_TOKEN;
@@ -28,6 +33,7 @@ export async function fetchMetaAdStatuses(adAccountId) {
 
   try {
     const statusMap = new Map();
+    const activeNames = new Set();
     let url = `${META_BASE_URL}/${adAccountId}/ads?fields=id,name,effective_status&limit=500&access_token=${token}`;
 
     while (url) {
@@ -45,9 +51,16 @@ export async function fetchMetaAdStatuses(adAccountId) {
 
       if (json.data) {
         for (const ad of json.data) {
+          if (ad.effective_status === 'ACTIVE') {
+            activeNames.add(ad.name);
+          }
+
           const existing = statusMap.get(ad.name);
-          // If duplicate ad names exist, prefer ACTIVE over any other status
-          if (!existing || ad.effective_status === 'ACTIVE') {
+          if (!existing) {
+            statusMap.set(ad.name, ad.effective_status);
+          } else if (existing === 'ACTIVE' && ad.effective_status !== 'ACTIVE') {
+            // For duplicates, prefer non-ACTIVE for sheet matching
+            // (sheet data is from the old/paused version of the ad)
             statusMap.set(ad.name, ad.effective_status);
           }
         }
@@ -56,8 +69,9 @@ export async function fetchMetaAdStatuses(adAccountId) {
       url = json.paging?.next || null;
     }
 
-    statusCache[adAccountId] = { data: statusMap, timestamp: Date.now() };
-    return statusMap;
+    const result = { statusMap, activeNames };
+    statusCache[adAccountId] = { data: result, timestamp: Date.now() };
+    return result;
   } catch (err) {
     console.error(`[meta.js] Failed to fetch Meta statuses for ${adAccountId}:`, err.message);
     return null;
@@ -87,14 +101,16 @@ function mapMetaStatus(metaStatus) {
 
 /**
  * Merge live Meta statuses into aggregated ad objects.
- * If statusMap is null (Meta API failed), ads keep their sheet status.
+ * If metaData is null (Meta API failed), ads keep their sheet status.
  */
-export function mergeMetaStatuses(ads, statusMap) {
-  if (!statusMap) {
+export function mergeMetaStatuses(ads, metaData) {
+  if (!metaData) {
     return ads.map((ad) => ({ ...ad, statusSource: 'sheet' }));
   }
 
-  // Track which Meta ads were matched to sheet ads
+  const { statusMap, activeNames } = metaData;
+
+  // Track which Meta ad names were matched to sheet ads
   const matchedMetaNames = new Set();
 
   const merged = ads.map((ad) => {
@@ -127,20 +143,38 @@ export function mergeMetaStatuses(ads, statusMap) {
     return { ...ad, statusSource: 'sheet' };
   });
 
-  // Add new ads from Meta that aren't in the sheet yet
-  for (const [metaName, metaStatus] of statusMap) {
-    if (matchedMetaNames.has(metaName)) continue;
-
-    const mapped = mapMetaStatus(metaStatus);
-    // Only show active or in-review ads — skip old deleted/archived ones
-    if (mapped !== 'ACTIVE' && mapped !== 'IN REVIEW' && mapped !== 'PROCESSING') continue;
+  // Add new active ads from Meta that aren't in the sheet yet
+  for (const name of activeNames) {
+    if (matchedMetaNames.has(name)) {
+      // Name was matched to a sheet ad — but if the sheet ad got the
+      // non-ACTIVE status (old version), the new ACTIVE version should
+      // still show up separately
+      const sheetAd = merged.find(
+        (a) => a.adName === name && a.statusSource === 'meta',
+      );
+      if (sheetAd && sheetAd.status === 'ACTIVE') continue;
+    } else {
+      // Check case-insensitive match too
+      const normalizedName = name.toLowerCase().trim();
+      const matched = [...matchedMetaNames].some(
+        (m) => m.toLowerCase().trim() === normalizedName,
+      );
+      if (matched) {
+        const sheetAd = merged.find(
+          (a) =>
+            a.adName.toLowerCase().trim() === normalizedName &&
+            a.statusSource === 'meta',
+        );
+        if (sheetAd && sheetAd.status === 'ACTIVE') continue;
+      }
+    }
 
     merged.push({
-      adName: metaName,
+      adName: name,
       campaignName: '',
       adSetName: '',
-      status: mapped,
-      metaRawStatus: metaStatus,
+      status: 'ACTIVE',
+      metaRawStatus: 'ACTIVE',
       statusSource: 'meta-only',
       totalSpend: 0,
       totalLeads: 0,
