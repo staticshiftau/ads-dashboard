@@ -73,10 +73,12 @@ export function aggregateAds(rows) {
   const adMap = {};
 
   rows.forEach((row) => {
-    const key = row['Ad Name'] || 'Unknown';
+    // Use Ad ID as key when available (Meta API), fall back to name (Google Sheets)
+    const key = row['Ad ID'] || row['Ad Name'] || 'Unknown';
     if (!adMap[key]) {
       adMap[key] = {
-        adName: key,
+        adName: row['Ad Name'] || 'Unknown',
+        adId: row['Ad ID'] || null,
         campaignName: row['Campaign Name'] || '',
         adSetName: row['Ad Set Name'] || '',
         status: row['Status'] || '',

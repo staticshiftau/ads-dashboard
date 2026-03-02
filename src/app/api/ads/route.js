@@ -1,14 +1,79 @@
 import { NextResponse } from 'next/server';
 import { clients } from '@/lib/clients';
 import {
-  fetchSheetData,
   aggregateAds,
   getClientSummary,
-  getLastNDays,
 } from '@/lib/sheets';
-import { fetchMetaAdStatuses, mergeMetaStatuses } from '@/lib/meta';
+import {
+  fetchMetaInsights,
+  fetchMetaAdStatuses,
+  applyMetaStatuses,
+  getNewAdsFromMeta,
+} from '@/lib/meta';
 
 export const dynamic = 'force-dynamic';
+
+const EMPTY_SUMMARY = {
+  totalSpend: 0,
+  totalLeads: 0,
+  totalImpressions: 0,
+  totalClicks: 0,
+  totalLinkClicks: 0,
+  cpl: 0,
+  uniqueAds: 0,
+  activeAds: 0,
+  dateRange: null,
+  totalRows: 0,
+};
+
+async function fetchClientAds(client, days) {
+  // Clients without a Meta ad account return empty data
+  if (!client.fbAdAccountId) {
+    return {
+      client: { name: client.name, slug: client.slug },
+      summary: { ...EMPTY_SUMMARY },
+      ads: [],
+      rawRows: [],
+    };
+  }
+
+  // Fetch insights and statuses from Meta in parallel
+  const [rows, statusMap] = await Promise.all([
+    fetchMetaInsights(client.fbAdAccountId, days),
+    fetchMetaAdStatuses(client.fbAdAccountId),
+  ]);
+
+  if (!rows) {
+    return {
+      client: { name: client.name, slug: client.slug },
+      summary: { ...EMPTY_SUMMARY },
+      ads: [],
+      rawRows: [],
+      error: 'Failed to fetch from Meta API',
+    };
+  }
+
+  // Aggregate daily rows into per-ad summaries
+  let ads = aggregateAds(rows);
+
+  // Apply real statuses from Meta /ads endpoint (matched by ad_id)
+  ads = applyMetaStatuses(ads, statusMap);
+
+  // Add newly launched ads that have no insights data yet
+  const existingAdIds = new Set(ads.map((a) => a.adId).filter(Boolean));
+  const newAds = getNewAdsFromMeta(statusMap, existingAdIds);
+  ads = [...ads, ...newAds];
+
+  const summary = getClientSummary(rows);
+  summary.activeAds = ads.filter((a) => a.status === 'ACTIVE').length;
+
+  return {
+    client: { name: client.name, slug: client.slug },
+    summary,
+    ads,
+    rawRows: rows,
+  };
+}
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -27,80 +92,13 @@ export async function GET(request) {
         return NextResponse.json({ error: 'Client not found' }, { status: 404 });
       }
 
-      // Clients without an ad performance sheet (e.g. Static Shift)
-      // return empty ad data — their pipeline data comes from /api/leads
-      if (!client.sheetId) {
-        return NextResponse.json({
-          client: { name: client.name, slug: client.slug },
-          summary: {
-            totalSpend: 0,
-            totalLeads: 0,
-            totalImpressions: 0,
-            totalClicks: 0,
-            totalLinkClicks: 0,
-            cpl: 0,
-            uniqueAds: 0,
-            dateRange: null,
-            totalRows: 0,
-          },
-          ads: [],
-          rawRows: [],
-        }, { headers: cacheHeaders });
-      }
-
-      // Fetch sheet data and Meta statuses in parallel
-      const [rows, metaStatusMap] = await Promise.all([
-        fetchSheetData(client.sheetId, client.sheetTab),
-        client.fbAdAccountId
-          ? fetchMetaAdStatuses(client.fbAdAccountId)
-          : Promise.resolve(null),
-      ]);
-
-      const recent = getLastNDays(rows, days);
-      let ads = aggregateAds(recent);
-      ads = mergeMetaStatuses(ads, metaStatusMap);
-      const summary = getClientSummary(recent);
-      summary.activeAds = ads.filter((a) => a.status === 'ACTIVE').length;
-
-      return NextResponse.json({
-        client: { name: client.name, slug: client.slug },
-        summary,
-        ads,
-        rawRows: recent,
-      }, { headers: cacheHeaders });
+      const result = await fetchClientAds(client, days);
+      return NextResponse.json(result, { headers: cacheHeaders });
     }
 
     // All clients overview
     const results = await Promise.allSettled(
-      clients.map(async (client) => {
-        // Skip clients without ad performance sheets
-        if (!client.sheetId) {
-          return {
-            client: { name: client.name, slug: client.slug },
-            summary: null,
-            ads: [],
-          };
-        }
-
-        const [rows, metaStatusMap] = await Promise.all([
-          fetchSheetData(client.sheetId, client.sheetTab),
-          client.fbAdAccountId
-            ? fetchMetaAdStatuses(client.fbAdAccountId)
-            : Promise.resolve(null),
-        ]);
-
-        const recent = getLastNDays(rows, days);
-        let ads = aggregateAds(recent);
-        ads = mergeMetaStatuses(ads, metaStatusMap);
-        const summary = getClientSummary(recent);
-        summary.activeAds = ads.filter((a) => a.status === 'ACTIVE').length;
-
-        return {
-          client: { name: client.name, slug: client.slug },
-          summary,
-          ads,
-        };
-      })
+      clients.map((client) => fetchClientAds(client, days))
     );
 
     const data = results.map((r, i) => {

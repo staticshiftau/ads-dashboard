@@ -1,81 +1,42 @@
 /**
- * Meta Marketing API integration for fetching live ad statuses.
- * Uses the Graph API v24.0 to query effective_status per ad account.
+ * Meta Marketing API integration.
+ * Fetches ad performance data and statuses directly from Meta Graph API v24.0.
  */
 
 const META_API_VERSION = 'v24.0';
 const META_BASE_URL = `https://graph.facebook.com/${META_API_VERSION}`;
 
-// In-memory cache: { [adAccountId]: { data, timestamp } }
+// In-memory caches
+const insightsCache = {};
 const statusCache = {};
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
- * Fetch all ad statuses for a given Meta ad account.
- * Returns { statusMap, activeNames } or null on failure.
- *
- * statusMap: Map<name, status> — for duplicate names, prefers non-ACTIVE
- *   (sheet ads with historical data are the old/paused version)
- * activeNames: Set<name> — all names that have at least one ACTIVE version
- *   (used to surface new active ads not yet in the sheet)
+ * Extract lead count from Meta actions array.
  */
-export async function fetchMetaAdStatuses(adAccountId) {
-  const token = process.env.META_ACCESS_TOKEN;
-  if (!token || !adAccountId) {
-    return null;
-  }
+function getLeads(actions) {
+  if (!actions || !Array.isArray(actions)) return 0;
+  const leadAction = actions.find((a) => {
+    const t = a.action_type || '';
+    return (
+      t.includes('lead') ||
+      t.includes('registration') ||
+      t.includes('contact') ||
+      t === 'offsite_conversion.fb_pixel_lead' ||
+      t === 'leadgen_grouped' ||
+      t === 'onsite_conversion.lead_grouped'
+    );
+  });
+  return leadAction ? parseFloat(leadAction.value) : 0;
+}
 
-  // Check cache
-  const cached = statusCache[adAccountId];
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    return cached.data;
-  }
-
-  try {
-    const statusMap = new Map();
-    const activeNames = new Set();
-    let url = `${META_BASE_URL}/${adAccountId}/ads?fields=id,name,effective_status&limit=500&access_token=${token}`;
-
-    while (url) {
-      const res = await fetch(url, {
-        signal: AbortSignal.timeout(10000),
-      });
-
-      if (!res.ok) {
-        const errorBody = await res.text();
-        console.error(`[meta.js] Meta API error for ${adAccountId}: ${res.status}`, errorBody);
-        return null;
-      }
-
-      const json = await res.json();
-
-      if (json.data) {
-        for (const ad of json.data) {
-          if (ad.effective_status === 'ACTIVE') {
-            activeNames.add(ad.name);
-          }
-
-          const existing = statusMap.get(ad.name);
-          if (!existing) {
-            statusMap.set(ad.name, ad.effective_status);
-          } else if (existing === 'ACTIVE' && ad.effective_status !== 'ACTIVE') {
-            // For duplicates, prefer non-ACTIVE for sheet matching
-            // (sheet data is from the old/paused version of the ad)
-            statusMap.set(ad.name, ad.effective_status);
-          }
-        }
-      }
-
-      url = json.paging?.next || null;
-    }
-
-    const result = { statusMap, activeNames };
-    statusCache[adAccountId] = { data: result, timestamp: Date.now() };
-    return result;
-  } catch (err) {
-    console.error(`[meta.js] Failed to fetch Meta statuses for ${adAccountId}:`, err.message);
-    return null;
-  }
+/**
+ * Extract link click count from Meta actions array.
+ */
+function getLinkClicks(actions) {
+  if (!actions || !Array.isArray(actions)) return 0;
+  const lc = actions.find((a) => a.action_type === 'link_click');
+  return lc ? parseFloat(lc.value) : 0;
 }
 
 /**
@@ -100,83 +61,172 @@ function mapMetaStatus(metaStatus) {
 }
 
 /**
- * Merge live Meta statuses into aggregated ad objects.
- * If metaData is null (Meta API failed), ads keep their sheet status.
+ * Fetch paginated data from Meta API.
  */
-export function mergeMetaStatuses(ads, metaData) {
-  if (!metaData) {
-    return ads.map((ad) => ({ ...ad, statusSource: 'sheet' }));
+async function fetchAllPages(url) {
+  const results = [];
+  let nextUrl = url;
+
+  while (nextUrl) {
+    const res = await fetch(nextUrl, {
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!res.ok) {
+      const errorBody = await res.text();
+      console.error(`[meta.js] Meta API error: ${res.status}`, errorBody);
+      return null;
+    }
+
+    const json = await res.json();
+    if (json.data) {
+      results.push(...json.data);
+    }
+    nextUrl = json.paging?.next || null;
   }
 
-  const { statusMap, activeNames } = metaData;
+  return results;
+}
 
-  // Track which Meta ad names were matched to sheet ads
-  const matchedMetaNames = new Set();
+/**
+ * Fetch ad statuses for a given Meta ad account.
+ * Returns a Map of ad_id -> { name, effective_status }.
+ */
+export async function fetchMetaAdStatuses(adAccountId) {
+  const token = process.env.META_ACCESS_TOKEN;
+  if (!token || !adAccountId) return null;
 
-  const merged = ads.map((ad) => {
-    // Exact match
-    let metaStatus = statusMap.get(ad.adName);
-    let matchedName = metaStatus ? ad.adName : null;
+  const cacheKey = adAccountId;
+  const cached = statusCache[cacheKey];
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
 
-    // Fallback: case-insensitive trimmed match
-    if (!metaStatus) {
-      const normalizedSheet = ad.adName.toLowerCase().trim();
-      for (const [metaName, status] of statusMap) {
-        if (metaName.toLowerCase().trim() === normalizedSheet) {
-          metaStatus = status;
-          matchedName = metaName;
-          break;
-        }
+  const url = `${META_BASE_URL}/${adAccountId}/ads?fields=id,name,effective_status&limit=500&access_token=${token}`;
+  const ads = await fetchAllPages(url);
+  if (!ads) return null;
+
+  const statusMap = new Map();
+  for (const ad of ads) {
+    statusMap.set(ad.id, {
+      name: ad.name,
+      effectiveStatus: ad.effective_status,
+    });
+  }
+
+  statusCache[cacheKey] = { data: statusMap, timestamp: Date.now() };
+  return statusMap;
+}
+
+/**
+ * Fetch ad performance insights directly from Meta API.
+ * Returns rows in the same format as Google Sheets data.
+ */
+export async function fetchMetaInsights(adAccountId, days = 30) {
+  const token = process.env.META_ACCESS_TOKEN;
+  if (!token || !adAccountId) return null;
+
+  const cacheKey = `${adAccountId}_${days}`;
+  const cached = insightsCache[cacheKey];
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  // Calculate date range
+  const today = new Date();
+  const since = new Date(today);
+  since.setDate(since.getDate() - days);
+  const sinceStr = since.toISOString().split('T')[0];
+  const untilStr = today.toISOString().split('T')[0];
+
+  const timeRange = encodeURIComponent(
+    JSON.stringify({ since: sinceStr, until: untilStr })
+  );
+
+  const url =
+    `${META_BASE_URL}/${adAccountId}/insights` +
+    `?fields=ad_id,ad_name,campaign_name,adset_name,spend,impressions,clicks,actions` +
+    `&level=ad&time_increment=1&limit=500` +
+    `&time_range=${timeRange}` +
+    `&access_token=${token}`;
+
+  const data = await fetchAllPages(url);
+  if (!data) return null;
+
+  // Transform into the format aggregateAds() expects
+  const rows = data.map((row) => ({
+    Date: row.date_start,
+    'Ad Name': row.ad_name,
+    'Ad ID': row.ad_id,
+    'Campaign Name': row.campaign_name,
+    'Ad Set Name': row.adset_name,
+    Status: 'ACTIVE', // placeholder — will be overridden by status fetch
+    Spend: parseFloat(row.spend) || 0,
+    Leads: getLeads(row.actions),
+    Impressions: parseInt(row.impressions) || 0,
+    Clicks: parseInt(row.clicks) || 0,
+    'Link Clicks': getLinkClicks(row.actions),
+  }));
+
+  insightsCache[cacheKey] = { data: rows, timestamp: Date.now() };
+  return rows;
+}
+
+/**
+ * Apply real statuses from /ads endpoint to insight rows and aggregated ads.
+ * Matches by ad_id — no more name collision issues.
+ */
+export function applyMetaStatuses(ads, statusMap) {
+  if (!statusMap) return ads;
+
+  return ads.map((ad) => {
+    // Match by ad ID if available
+    if (ad.adId) {
+      const info = statusMap.get(ad.adId);
+      if (info) {
+        return {
+          ...ad,
+          status: mapMetaStatus(info.effectiveStatus),
+        };
       }
     }
 
-    if (metaStatus) {
-      matchedMetaNames.add(matchedName);
-      return {
-        ...ad,
-        status: mapMetaStatus(metaStatus),
-        metaRawStatus: metaStatus,
-        statusSource: 'meta',
-      };
+    // Fallback: match by name (for ads without ID)
+    for (const [, info] of statusMap) {
+      if (info.name === ad.adName) {
+        return {
+          ...ad,
+          status: mapMetaStatus(info.effectiveStatus),
+        };
+      }
     }
 
-    // Ad not found in Meta — it's been deleted/renamed, so it's not active
-    return { ...ad, status: 'PAUSED', statusSource: 'meta-not-found' };
+    return ad;
   });
+}
 
-  // Add new active ads from Meta that aren't in the sheet yet
-  for (const name of activeNames) {
-    if (matchedMetaNames.has(name)) {
-      // Name was matched to a sheet ad — but if the sheet ad got the
-      // non-ACTIVE status (old version), the new ACTIVE version should
-      // still show up separately
-      const sheetAd = merged.find(
-        (a) => a.adName === name && a.statusSource === 'meta',
-      );
-      if (sheetAd && sheetAd.status === 'ACTIVE') continue;
-    } else {
-      // Check case-insensitive match too
-      const normalizedName = name.toLowerCase().trim();
-      const matched = [...matchedMetaNames].some(
-        (m) => m.toLowerCase().trim() === normalizedName,
-      );
-      if (matched) {
-        const sheetAd = merged.find(
-          (a) =>
-            a.adName.toLowerCase().trim() === normalizedName &&
-            a.statusSource === 'meta',
-        );
-        if (sheetAd && sheetAd.status === 'ACTIVE') continue;
-      }
-    }
+/**
+ * Get ads from Meta that have a status but no insights data
+ * (newly launched ads with no spend yet).
+ */
+export function getNewAdsFromMeta(statusMap, existingAdIds) {
+  if (!statusMap) return [];
 
-    merged.push({
-      adName: name,
+  const newAds = [];
+  for (const [adId, info] of statusMap) {
+    if (existingAdIds.has(adId)) continue;
+
+    const mapped = mapMetaStatus(info.effectiveStatus);
+    // Only show active or in-review — skip old archived/deleted
+    if (mapped !== 'ACTIVE' && mapped !== 'IN REVIEW' && mapped !== 'PROCESSING')
+      continue;
+
+    newAds.push({
+      adName: info.name,
+      adId: adId,
       campaignName: '',
       adSetName: '',
-      status: 'ACTIVE',
-      metaRawStatus: 'ACTIVE',
-      statusSource: 'meta-only',
+      status: mapped,
       totalSpend: 0,
       totalLeads: 0,
       totalImpressions: 0,
@@ -191,5 +241,5 @@ export function mergeMetaStatuses(ads, metaData) {
     });
   }
 
-  return merged;
+  return newAds;
 }
