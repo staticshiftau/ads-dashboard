@@ -43,15 +43,26 @@ export default function Home() {
     }
   }
 
-  // Combine all ads across clients for comparison view
+  // Per-ad pipeline stats from leads data
+  const adPipelineStats = leadsData?.adPipelineStats || {};
+
+  // Combine all ads across clients for comparison view, enriched with pipeline data
   const allAds =
     data?.flatMap(
       (d) =>
-        d.ads?.map((ad) => ({
-          ...ad,
-          clientName: d.client.name,
-          clientSlug: d.client.slug,
-        })) || []
+        d.ads?.map((ad) => {
+          const stats = adPipelineStats[ad.adName] || {};
+          return {
+            ...ad,
+            clientName: d.client.name,
+            clientSlug: d.client.slug,
+            meetings: stats.meetingsBooked || 0,
+            strategyCalls: stats.strategyCalls || 0,
+            closed: stats.closed || 0,
+            costPerMeeting:
+              stats.meetingsBooked > 0 ? ad.totalSpend / stats.meetingsBooked : 0,
+          };
+        }) || []
     ) || [];
 
   // Filter ads by selected client
@@ -213,7 +224,7 @@ export default function Home() {
         <div className="flex flex-col items-center justify-center py-20">
           <div className="loading-pulse text-lg mb-2">Loading...</div>
           <div className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
-            Fetching data from Google Sheets
+            Fetching ad performance data
           </div>
         </div>
       )}

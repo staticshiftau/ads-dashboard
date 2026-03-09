@@ -76,10 +76,32 @@ export async function GET(request) {
       };
     });
 
+    // 8. Per-ad pipeline breakdown (which ads generate meetings/calls)
+    const adPipelineStats = {};
+    leads.forEach((lead) => {
+      const adName = lead.adName || 'Unknown';
+      if (!adPipelineStats[adName]) {
+        adPipelineStats[adName] = {
+          adName,
+          leads: 0,
+          pickedUp: 0,
+          meetingsBooked: 0,
+          strategyCalls: 0,
+          closed: 0,
+        };
+      }
+      adPipelineStats[adName].leads++;
+      if (lead.pickedUp) adPipelineStats[adName].pickedUp++;
+      if (lead.meetingBooked) adPipelineStats[adName].meetingsBooked++;
+      if (lead.strategyCall) adPipelineStats[adName].strategyCalls++;
+      if (lead.closed) adPipelineStats[adName].closed++;
+    });
+
     return NextResponse.json({
       leads,
       pipeline,
       clientPipelines,
+      adPipelineStats,
       totalLeads: leads.length,
     }, { headers: cacheHeaders });
   } catch (error) {

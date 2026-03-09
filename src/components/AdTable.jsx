@@ -91,6 +91,12 @@ export default function AdTable({ ads, showClient = false }) {
             </th>
             <th
               className="cursor-pointer hover:text-white"
+              onClick={() => handleSort('meetings')}
+            >
+              Meetings <SortIcon field="meetings" />
+            </th>
+            <th
+              className="cursor-pointer hover:text-white"
               onClick={() => handleSort('totalSpend')}
             >
               Spend <SortIcon field="totalSpend" />
@@ -100,6 +106,12 @@ export default function AdTable({ ads, showClient = false }) {
               onClick={() => handleSort('cpl')}
             >
               CPL <SortIcon field="cpl" />
+            </th>
+            <th
+              className="cursor-pointer hover:text-white"
+              onClick={() => handleSort('costPerMeeting')}
+            >
+              Cost/Mtg <SortIcon field="costPerMeeting" />
             </th>
             <th
               className="cursor-pointer hover:text-white"
@@ -166,6 +178,19 @@ export default function AdTable({ ads, showClient = false }) {
                   {ad.totalLeads}
                 </span>
               </td>
+              <td>
+                <span
+                  className="font-bold"
+                  style={{
+                    color:
+                      ad.meetings > 0
+                        ? 'var(--color-orange)'
+                        : 'var(--color-text-muted)',
+                  }}
+                >
+                  {ad.meetings || 0}
+                </span>
+              </td>
               <td>${ad.totalSpend.toFixed(2)}</td>
               <td>
                 <span
@@ -175,6 +200,16 @@ export default function AdTable({ ads, showClient = false }) {
                   }}
                 >
                   {ad.cpl > 0 ? `$${ad.cpl.toFixed(2)}` : '-'}
+                </span>
+              </td>
+              <td>
+                <span
+                  style={{
+                    color:
+                      ad.costPerMeeting > 0 ? 'var(--color-orange)' : 'var(--color-text-muted)',
+                  }}
+                >
+                  {ad.costPerMeeting > 0 ? `$${ad.costPerMeeting.toFixed(2)}` : '-'}
                 </span>
               </td>
               <td>{ad.totalLinkClicks}</td>
@@ -191,7 +226,7 @@ export default function AdTable({ ads, showClient = false }) {
           {sorted.length === 0 && (
             <tr>
               <td
-                colSpan={showClient ? 11 : 10}
+                colSpan={showClient ? 13 : 12}
                 className="text-center py-8"
                 style={{ color: 'var(--color-text-muted)' }}
               >

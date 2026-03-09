@@ -49,10 +49,24 @@ export default function ClientPage({ params }) {
   }
 
   const summary = data?.summary;
-  const ads = data?.ads || [];
+  const rawAds = data?.ads || [];
   const rawRows = data?.rawRows || [];
   const pipeline = leadsData?.pipeline;
   const leads = leadsData?.leads || [];
+  const adPipelineStats = leadsData?.adPipelineStats || {};
+
+  // Enrich ads with pipeline data (meetings, calls, closes per ad)
+  const ads = rawAds.map((ad) => {
+    const stats = adPipelineStats[ad.adName] || {};
+    return {
+      ...ad,
+      meetings: stats.meetingsBooked || 0,
+      strategyCalls: stats.strategyCalls || 0,
+      closed: stats.closed || 0,
+      costPerMeeting:
+        stats.meetingsBooked > 0 ? ad.totalSpend / stats.meetingsBooked : 0,
+    };
+  });
 
   // Split ads into performing vs not
   const leadAds = ads.filter((a) => a.totalLeads > 0);
@@ -249,9 +263,19 @@ export default function ClientPage({ params }) {
                           <span style={{ color: 'var(--color-green)' }}>
                             {ad.totalLeads} leads
                           </span>
+                          {ad.meetings > 0 && (
+                            <span style={{ color: 'var(--color-orange)' }}>
+                              {ad.meetings} meetings
+                            </span>
+                          )}
                           <span style={{ color: 'var(--color-text-muted)' }}>
                             ${ad.cpl.toFixed(2)} CPL
                           </span>
+                          {ad.costPerMeeting > 0 && (
+                            <span style={{ color: 'var(--color-text-muted)' }}>
+                              ${ad.costPerMeeting.toFixed(0)}/mtg
+                            </span>
+                          )}
                         </div>
                       </div>
                     ))}
