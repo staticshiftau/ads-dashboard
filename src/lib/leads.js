@@ -3,12 +3,17 @@
  * These sheets track the full sales pipeline: Lead → Pick Up → Meeting → SC → Close
  */
 
-// Both leads tracker sheets (from n8n workflows)
+// Leads tracker tabs — one per client (all in the same spreadsheet)
 const LEADS_SHEETS = [
   {
     sheetId: '18UReQjJDNgP0976BPiaOjP9DRcxvA6e-Q8SsCiS0aMc',
     sheetTab: 'Static Shift',
-    name: 'pau-v2',
+    clientSlug: 'static-shift',
+  },
+  {
+    sheetId: '18UReQjJDNgP0976BPiaOjP9DRcxvA6e-Q8SsCiS0aMc',
+    sheetTab: 'Fusion Financial',
+    clientSlug: 'fusion-financial-group',
   },
 ];
 
@@ -49,11 +54,16 @@ async function fetchLeadsSheet(sheetId, sheetTab) {
 }
 
 /**
- * Fetch leads from all tracker sheets, dedup by email
+ * Fetch leads from all tracker sheets, dedup by email+phone+time, tag with clientSlug
  */
 export async function fetchAllLeads() {
   const results = await Promise.allSettled(
-    LEADS_SHEETS.map((s) => fetchLeadsSheet(s.sheetId, s.sheetTab))
+    LEADS_SHEETS.map(async (s) => {
+      const rows = await fetchLeadsSheet(s.sheetId, s.sheetTab);
+      // Tag each row with the client slug from the sheet config
+      rows.forEach((row) => { row._clientSlug = s.clientSlug; });
+      return rows;
+    })
   );
 
   const allLeads = [];
@@ -62,8 +72,8 @@ export async function fetchAllLeads() {
   results.forEach((r) => {
     if (r.status !== 'fulfilled') return;
     r.value.forEach((lead) => {
-      // Dedup by email + created_time
-      const key = `${lead.email || ''}_${lead.created_time || ''}`;
+      // Dedup by phone + created_time (more reliable than email)
+      const key = `${lead.phone || lead.email || ''}_${lead.created_time || ''}`;
       if (!seen.has(key)) {
         seen.add(key);
         allLeads.push(lead);
@@ -178,15 +188,13 @@ export function matchLeadToClient(lead, clientDataMap) {
 
 /**
  * Process all leads into structured data with pipeline stats.
- * The leads tracker sheets are ONLY for Static Shift's own ads.
- * Other clients don't have leads tracker sheets — their pipeline is not tracked here.
+ * Each lead gets its clientSlug from the sheet tab it came from.
  */
-export function processLeads(rawLeads, clientDataMap) {
-  const leads = rawLeads.map(parseLead);
-
-  // All leads from the main tracker belong to Static Shift
-  leads.forEach((lead) => {
-    lead.clientSlug = 'static-shift';
+export function processLeads(rawLeads) {
+  const leads = rawLeads.map((raw) => {
+    const lead = parseLead(raw);
+    lead.clientSlug = raw._clientSlug || 'static-shift';
+    return lead;
   });
 
   return leads;
