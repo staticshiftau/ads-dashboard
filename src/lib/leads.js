@@ -20,6 +20,16 @@ const LEADS_SHEETS = [
     sheetTab: 'eddie',
     clientSlug: 'eddie-senatore',
   },
+  {
+    sheetId: '18UReQjJDNgP0976BPiaOjP9DRcxvA6e-Q8SsCiS0aMc',
+    sheetTab: 'Corbel',
+    clientSlug: 'corbel',
+  },
+  {
+    sheetId: '18UReQjJDNgP0976BPiaOjP9DRcxvA6e-Q8SsCiS0aMc',
+    sheetTab: 'Stirling Marketing',
+    clientSlug: 'stirling-marketing',
+  },
 ];
 
 /**
