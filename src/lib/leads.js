@@ -7,13 +7,8 @@
 const LEADS_SHEETS = [
   {
     sheetId: '18UReQjJDNgP0976BPiaOjP9DRcxvA6e-Q8SsCiS0aMc',
-    sheetTab: 'MAIN Leads Sheet (DO NOT TOUCH)',
+    sheetTab: 'Static Shift',
     name: 'pau-v2',
-  },
-  {
-    sheetId: '1F3d3vIMV1q_Ucew9TKX0QiBChCAX9_2i1LFzKv7SZtI',
-    sheetTab: 'MAIN Leads Sheet (DO NOT TOUCH)',
-    name: 'original',
   },
 ];
 

@@ -2,9 +2,9 @@ export const clients = [
   {
     slug: 'static-shift',
     name: 'Static Shift',
-    sheetId: null, // No ad performance sheet yet — uses leads tracker only
+    sheetId: null,
     sheetTab: null,
-    fbAdAccountId: null,
+    fbAdAccountId: 'act_990085855697029',
     slackChannelId: null,
     isAgency: true, // Flag for Static Shift's own ads
   },
