@@ -17,7 +17,7 @@ const LEADS_SHEETS = [
   },
   {
     sheetId: '18UReQjJDNgP0976BPiaOjP9DRcxvA6e-Q8SsCiS0aMc',
-    sheetTab: 'eddie',
+    sheetTab: 'Eddie',
     clientSlug: 'eddie-senatore',
   },
   {
