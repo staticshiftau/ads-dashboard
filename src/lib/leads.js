@@ -61,7 +61,11 @@ async function fetchLeadsSheet(sheetId, sheetTab) {
       const obj = {};
       row.c.forEach((cell, i) => {
         if (!cols[i]) return;
-        obj[cols[i]] = cell ? cell.v : null;
+        const val = cell ? cell.v : null;
+        // Don't overwrite a truthy value with null (handles duplicate column labels)
+        if (val != null || !(cols[i] in obj)) {
+          obj[cols[i]] = val;
+        }
       });
       return obj;
     })
