@@ -99,6 +99,7 @@ export default function ClientPage({ params }) {
         <div className="flex items-center gap-3">
           <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
             {[
+              { label: '3d', value: 3 },
               { label: '7d', value: 7 },
               { label: '14d', value: 14 },
               { label: '30d', value: 30 },
