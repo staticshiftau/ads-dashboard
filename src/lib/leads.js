@@ -110,8 +110,16 @@ function parseLead(raw) {
   const createdTime = raw.created_time || '';
   let createdDate = '';
   if (createdTime) {
-    // Parse "2026-02-17T22:08:42+0000" format
-    createdDate = createdTime.split('T')[0];
+    if (createdTime.match(/^\d{4}-/)) {
+      // ISO format: "2026-02-17T22:08:42+0000"
+      createdDate = createdTime.split('T')[0];
+    } else {
+      // DD/MM/YYYY format: "09/03/2026 8:19 PM"
+      const parts = createdTime.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (parts) {
+        createdDate = `${parts[3]}-${parts[2].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+      }
+    }
   }
 
   return {
