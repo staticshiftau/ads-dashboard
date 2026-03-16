@@ -142,7 +142,7 @@ function parseLead(raw) {
     answer3: raw.answer_3 || '',
     // Pipeline stages (truthy = completed that stage)
     pickedUp: !!raw['pick_up'],
-    meetingBooked: !!raw['discovery'],
+    meetingBooked: raw['discovery'] === 'Booked',
     followUp: false,
     strategyCall: !!raw['sales_call'],
     closed: !!raw['close'],
