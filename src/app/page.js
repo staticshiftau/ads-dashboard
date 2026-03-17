@@ -24,9 +24,10 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
+      const t = Date.now();
       const [adsRes, leadsRes] = await Promise.all([
-        fetch(`/api/ads?days=${days}`, { cache: 'no-cache' }),
-        fetch(`/api/leads?days=${days}`, { cache: 'no-cache' }),
+        fetch(`/api/ads?days=${days}&t=${t}`, { cache: 'no-store' }),
+        fetch(`/api/leads?days=${days}&t=${t}`, { cache: 'no-store' }),
       ]);
       if (!adsRes.ok) throw new Error('Failed to fetch');
       const adsJson = await adsRes.json();
