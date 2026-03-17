@@ -30,7 +30,7 @@ export default function ClientPage({ params }) {
     try {
       const t = Date.now();
       const [adsRes, leadsRes] = await Promise.all([
-        fetch(`/api/ads?client=${slug}&days=${days}&t=${t}`, { cache: 'no-store' }),
+        fetch(`/api/campaigns?client=${slug}&days=${days}&t=${t}`, { cache: 'no-store' }),
         fetch(`/api/leads?client=${slug}&days=${days}&t=${t}`, { cache: 'no-store' }),
       ]);
 

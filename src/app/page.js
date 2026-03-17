@@ -26,7 +26,7 @@ export default function Home() {
     try {
       const t = Date.now();
       const [adsRes, leadsRes] = await Promise.all([
-        fetch(`/api/ads?days=${days}&t=${t}`, { cache: 'no-store' }),
+        fetch(`/api/campaigns?days=${days}&t=${t}`, { cache: 'no-store' }),
         fetch(`/api/leads?days=${days}&t=${t}`, { cache: 'no-store' }),
       ]);
       if (!adsRes.ok) throw new Error('Failed to fetch');
