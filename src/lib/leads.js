@@ -269,3 +269,10 @@ export function filterLeadsByDays(leads, days) {
 
   return leads.filter((l) => l.createdDate >= cutoffStr);
 }
+
+/**
+ * Filter leads by explicit date range (since/until as YYYY-MM-DD strings)
+ */
+export function filterLeadsByDateRange(leads, since, until) {
+  return leads.filter((l) => l.createdDate >= since && l.createdDate <= until);
+}

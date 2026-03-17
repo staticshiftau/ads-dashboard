@@ -26,7 +26,7 @@ const EMPTY_SUMMARY = {
   totalRows: 0,
 };
 
-async function fetchClientAds(client, days) {
+async function fetchClientAds(client, days, { since, until } = {}) {
   // Clients without a Meta ad account return empty data
   if (!client.fbAdAccountId) {
     return {
@@ -39,7 +39,7 @@ async function fetchClientAds(client, days) {
 
   // Fetch insights and statuses from Meta in parallel
   const [rows, statusMap] = await Promise.all([
-    fetchMetaInsights(client.fbAdAccountId, days),
+    fetchMetaInsights(client.fbAdAccountId, days, { since, until }),
     fetchMetaAdStatuses(client.fbAdAccountId),
   ]);
 
@@ -78,13 +78,12 @@ async function fetchClientAds(client, days) {
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const slug = searchParams.get('client');
+  const since = searchParams.get('since');
+  const until = searchParams.get('until');
   const days = parseInt(searchParams.get('days') || '30', 10);
 
-  const cacheHeaders = {
-    'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-  };
-  const noCacheHeaders = {
-    'Cache-Control': 'no-store',
+  const headers = {
+    'Cache-Control': 'no-store, no-cache, must-revalidate',
   };
 
   try {
@@ -92,16 +91,16 @@ export async function GET(request) {
       // Single client
       const client = clients.find((c) => c.slug === slug);
       if (!client) {
-        return NextResponse.json({ error: 'Client not found' }, { status: 404, headers: noCacheHeaders });
+        return NextResponse.json({ error: 'Client not found' }, { status: 404, headers: headers });
       }
 
-      const result = await fetchClientAds(client, days);
-      return NextResponse.json(result, { headers: cacheHeaders });
+      const result = await fetchClientAds(client, days, { since, until });
+      return NextResponse.json(result, { headers: headers });
     }
 
     // All clients overview
     const results = await Promise.allSettled(
-      clients.map((client) => fetchClientAds(client, days))
+      clients.map((client) => fetchClientAds(client, days, { since, until }))
     );
 
     const data = results.map((r, i) => {
@@ -114,11 +113,11 @@ export async function GET(request) {
       };
     });
 
-    return NextResponse.json(data, { headers: cacheHeaders });
+    return NextResponse.json(data, { headers: headers });
   } catch (error) {
     return NextResponse.json(
       { error: error.message || 'Failed to fetch data' },
-      { status: 500, headers: noCacheHeaders }
+      { status: 500, headers: headers }
     );
   }
 }

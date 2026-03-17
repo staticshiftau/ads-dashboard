@@ -122,22 +122,28 @@ export async function fetchMetaAdStatuses(adAccountId) {
  * Fetch ad performance insights directly from Meta API.
  * Returns rows in the same format as Google Sheets data.
  */
-export async function fetchMetaInsights(adAccountId, days = 30) {
+export async function fetchMetaInsights(adAccountId, days = 30, { since: sinceParam, until: untilParam } = {}) {
   const token = process.env.META_ACCESS_TOKEN;
   if (!token || !adAccountId) return null;
 
-  const cacheKey = `${adAccountId}_${days}`;
+  // Calculate date range — use explicit dates if provided, otherwise fall back to days
+  let sinceStr, untilStr;
+  if (sinceParam && untilParam) {
+    sinceStr = sinceParam;
+    untilStr = untilParam;
+  } else {
+    const today = new Date();
+    const sinceDate = new Date(today);
+    sinceDate.setDate(sinceDate.getDate() - days);
+    sinceStr = sinceDate.toISOString().split('T')[0];
+    untilStr = today.toISOString().split('T')[0];
+  }
+
+  const cacheKey = `${adAccountId}_${sinceStr}_${untilStr}`;
   const cached = insightsCache[cacheKey];
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return cached.data;
   }
-
-  // Calculate date range
-  const today = new Date();
-  const since = new Date(today);
-  since.setDate(since.getDate() - days);
-  const sinceStr = since.toISOString().split('T')[0];
-  const untilStr = today.toISOString().split('T')[0];
 
   const timeRange = encodeURIComponent(
     JSON.stringify({ since: sinceStr, until: untilStr })

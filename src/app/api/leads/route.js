@@ -4,6 +4,7 @@ import {
   processLeads,
   getPipelineSummary,
   filterLeadsByDays,
+  filterLeadsByDateRange,
 } from '@/lib/leads';
 
 export const dynamic = 'force-dynamic';
@@ -11,13 +12,12 @@ export const dynamic = 'force-dynamic';
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const slug = searchParams.get('client'); // optional: filter by client
+  const since = searchParams.get('since');
+  const until = searchParams.get('until');
   const days = parseInt(searchParams.get('days') || '30', 10);
 
-  const cacheHeaders = {
-    'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-  };
-  const noCacheHeaders = {
-    'Cache-Control': 'no-store',
+  const headers = {
+    'Cache-Control': 'no-store, no-cache, must-revalidate',
   };
 
   try {
@@ -28,7 +28,11 @@ export async function GET(request) {
     let leads = processLeads(rawLeads);
 
     // 4. Filter by date range
-    leads = filterLeadsByDays(leads, days);
+    if (since && until) {
+      leads = filterLeadsByDateRange(leads, since, until);
+    } else {
+      leads = filterLeadsByDays(leads, days);
+    }
 
     // 5. Filter by client if requested
     if (slug) {
@@ -81,11 +85,11 @@ export async function GET(request) {
       clientPipelines,
       adPipelineStats,
       totalLeads: leads.length,
-    }, { headers: cacheHeaders });
+    }, { headers: headers });
   } catch (error) {
     return NextResponse.json(
       { error: error.message || 'Failed to fetch leads data' },
-      { status: 500, headers: noCacheHeaders }
+      { status: 500, headers: headers }
     );
   }
 }
