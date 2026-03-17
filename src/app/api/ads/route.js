@@ -83,13 +83,16 @@ export async function GET(request) {
   const cacheHeaders = {
     'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
   };
+  const noCacheHeaders = {
+    'Cache-Control': 'no-store',
+  };
 
   try {
     if (slug) {
       // Single client
       const client = clients.find((c) => c.slug === slug);
       if (!client) {
-        return NextResponse.json({ error: 'Client not found' }, { status: 404 });
+        return NextResponse.json({ error: 'Client not found' }, { status: 404, headers: noCacheHeaders });
       }
 
       const result = await fetchClientAds(client, days);
@@ -115,7 +118,7 @@ export async function GET(request) {
   } catch (error) {
     return NextResponse.json(
       { error: error.message || 'Failed to fetch data' },
-      { status: 500 }
+      { status: 500, headers: noCacheHeaders }
     );
   }
 }

@@ -16,6 +16,9 @@ export async function GET(request) {
   const cacheHeaders = {
     'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
   };
+  const noCacheHeaders = {
+    'Cache-Control': 'no-store',
+  };
 
   try {
     // 1. Fetch all leads from tracker sheets (each tab is tagged with clientSlug)
@@ -82,7 +85,7 @@ export async function GET(request) {
   } catch (error) {
     return NextResponse.json(
       { error: error.message || 'Failed to fetch leads data' },
-      { status: 500 }
+      { status: 500, headers: noCacheHeaders }
     );
   }
 }
