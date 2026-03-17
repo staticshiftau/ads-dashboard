@@ -5,9 +5,11 @@ import Link from 'next/link';
 import { getClient } from '@/lib/clients';
 import MetricCard from '@/components/MetricCard';
 import AdTable from '@/components/AdTable';
+import CampaignTable from '@/components/CampaignTable';
 import SpendLeadsChart from '@/components/SpendLeadsChart';
 import PipelineFunnel from '@/components/PipelineFunnel';
 import LeadsTable from '@/components/LeadsTable';
+import LeadsMeetingsChart from '@/components/LeadsMeetingsChart';
 
 export default function ClientPage({ params }) {
   const { slug } = use(params);
@@ -19,19 +21,33 @@ export default function ClientPage({ params }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [days, setDays] = useState(30);
+  const [view, setView] = useState('overview'); // 'overview' | 'campaigns' | 'pipeline' | 'ads'
+  const [qualFilter, setQualFilter] = useState('all'); // 'all' | 'qualified' | 'non-qualified'
+
+  // Custom date range
+  const [dateMode, setDateMode] = useState('preset'); // 'preset' | 'custom'
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
 
   useEffect(() => {
     fetchData();
-  }, [slug, days]);
+  }, [slug, days, dateMode, customFrom, customTo]);
 
   async function fetchData() {
     setLoading(true);
     setError(null);
     try {
       const t = Date.now();
+      let params = `client=${slug}&t=${t}`;
+      if (dateMode === 'custom' && customFrom && customTo) {
+        params += `&since=${customFrom}&until=${customTo}`;
+      } else {
+        params += `&days=${days}`;
+      }
+
       const [adsRes, leadsRes] = await Promise.all([
-        fetch(`/api/campaigns?client=${slug}&days=${days}&t=${t}`, { cache: 'no-store' }),
-        fetch(`/api/leads?client=${slug}&days=${days}&t=${t}`, { cache: 'no-store' }),
+        fetch(`/api/campaigns?${params}`, { cache: 'no-store' }),
+        fetch(`/api/leads?${params}`, { cache: 'no-store' }),
       ]);
 
       if (!adsRes.ok) throw new Error('Failed to fetch ads data');
@@ -56,7 +72,7 @@ export default function ClientPage({ params }) {
   const leads = leadsData?.leads || [];
   const adPipelineStats = leadsData?.adPipelineStats || {};
 
-  // Enrich ads with pipeline data (meetings, calls, closes per ad)
+  // Enrich ads with pipeline data
   const ads = rawAds.map((ad) => {
     const stats = adPipelineStats[ad.adName] || {};
     return {
@@ -73,6 +89,63 @@ export default function ClientPage({ params }) {
   const leadAds = ads.filter((a) => a.totalLeads > 0);
   const zeroLeadAds = ads.filter((a) => a.totalLeads === 0 && a.totalSpend > 0);
 
+  // Apply qualified filter to leads
+  const filteredLeads = leads.filter((l) => {
+    if (qualFilter === 'qualified') return l.meetingBooked;
+    if (qualFilter === 'non-qualified') return !l.meetingBooked;
+    return true;
+  });
+
+  // Recalculate pipeline for filtered leads
+  const filteredPipeline =
+    qualFilter === 'all'
+      ? pipeline
+      : filteredLeads.length > 0
+        ? {
+            total: filteredLeads.length,
+            pickedUp: filteredLeads.filter((l) => l.pickedUp).length,
+            meetingsBooked: filteredLeads.filter((l) => l.meetingBooked).length,
+            strategyCalls: filteredLeads.filter((l) => l.strategyCall).length,
+            followUps: filteredLeads.filter((l) => l.followUp).length,
+            closed: filteredLeads.filter((l) => l.closed).length,
+          }
+        : { total: 0, pickedUp: 0, meetingsBooked: 0, strategyCalls: 0, followUps: 0, closed: 0 };
+
+  // Date display
+  const dateRangeLabel = (() => {
+    if (dateMode === 'custom' && customFrom && customTo) {
+      const fmt = (d) => new Date(d + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return `${fmt(customFrom)} – ${fmt(customTo)} · Custom range`;
+    }
+    if (summary?.dateRange) {
+      return `Data from ${summary.dateRange.from} to ${summary.dateRange.to}`;
+    }
+    return null;
+  })();
+
+  // Qualified filter component
+  const QualFilter = () => (
+    <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+      {[
+        { label: 'All', value: 'all' },
+        { label: 'Qualified', value: 'qualified' },
+        { label: 'Non-Qualified', value: 'non-qualified' },
+      ].map((opt) => (
+        <button
+          key={opt.value}
+          onClick={() => setQualFilter(opt.value)}
+          className="px-3 py-1.5 text-xs font-medium transition-colors"
+          style={{
+            background: qualFilter === opt.value ? 'var(--color-accent)' : 'transparent',
+            color: qualFilter === opt.value ? 'white' : 'var(--color-text-muted)',
+          }}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
     <div>
       {/* Breadcrumb + Header */}
@@ -88,16 +161,17 @@ export default function ClientPage({ params }) {
           <h1 className="text-xl font-bold tracking-tight">
             {clientName}
           </h1>
-          {summary?.dateRange && (
+          {dateRangeLabel && (
             <p
               className="text-xs mt-1"
               style={{ color: 'var(--color-text-muted)' }}
             >
-              Data from {summary.dateRange.from} to {summary.dateRange.to}
+              {dateRangeLabel}
             </p>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Preset time range */}
           <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
             {[
               { label: '3d', value: 3 },
@@ -109,19 +183,82 @@ export default function ClientPage({ params }) {
             ].map((opt) => (
               <button
                 key={opt.value}
-                onClick={() => setDays(opt.value)}
+                onClick={() => {
+                  setDateMode('preset');
+                  setDays(opt.value);
+                }}
                 className="px-3 py-1.5 text-xs font-medium transition-colors"
                 style={{
                   background:
-                    days === opt.value ? 'var(--color-accent)' : 'transparent',
+                    dateMode === 'preset' && days === opt.value ? 'var(--color-accent)' : 'transparent',
                   color:
-                    days === opt.value ? 'white' : 'var(--color-text-muted)',
+                    dateMode === 'preset' && days === opt.value ? 'white' : 'var(--color-text-muted)',
                 }}
               >
                 {opt.label}
               </button>
             ))}
           </div>
+
+          {/* Custom date range */}
+          <div className="flex items-center gap-1.5">
+            <input
+              type="date"
+              value={customFrom}
+              onChange={(e) => {
+                setCustomFrom(e.target.value);
+                if (e.target.value && customTo) setDateMode('custom');
+              }}
+              className="px-2 py-1.5 text-xs rounded-lg cursor-pointer"
+              style={{
+                background: 'var(--color-bg-card)',
+                border: `1px solid ${dateMode === 'custom' ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                color: 'var(--color-text)',
+                outline: 'none',
+                colorScheme: 'dark',
+              }}
+            />
+            <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>to</span>
+            <input
+              type="date"
+              value={customTo}
+              onChange={(e) => {
+                setCustomTo(e.target.value);
+                if (customFrom && e.target.value) setDateMode('custom');
+              }}
+              className="px-2 py-1.5 text-xs rounded-lg cursor-pointer"
+              style={{
+                background: 'var(--color-bg-card)',
+                border: `1px solid ${dateMode === 'custom' ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                color: 'var(--color-text)',
+                outline: 'none',
+                colorScheme: 'dark',
+              }}
+            />
+          </div>
+
+          {/* View toggle */}
+          <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+            {[
+              { label: 'Overview', value: 'overview' },
+              { label: 'Campaigns', value: 'campaigns' },
+              { label: 'Pipeline', value: 'pipeline' },
+              { label: 'All Ads', value: 'ads' },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setView(opt.value)}
+                className="px-3 py-1.5 text-xs font-medium transition-colors"
+                style={{
+                  background: view === opt.value ? 'var(--color-accent)' : 'transparent',
+                  color: view === opt.value ? 'white' : 'var(--color-text-muted)',
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
           <button
             onClick={fetchData}
             className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
@@ -167,7 +304,7 @@ export default function ClientPage({ params }) {
       {/* Data */}
       {!loading && !error && data && (
         <>
-          {/* Metric Cards - includes pipeline metrics */}
+          {/* Metric Cards — always visible */}
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
             <MetricCard
               label="Total Spend"
@@ -223,154 +360,198 @@ export default function ClientPage({ params }) {
             />
           </div>
 
-          {/* Pipeline Funnel + Lead Status side by side */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-            {/* Pipeline Funnel */}
-            <PipelineFunnel
-              pipeline={pipeline}
-              totalSpend={summary?.totalSpend}
-            />
-
-            {/* Ads Performance Summary */}
-            <div className="grid grid-cols-1 gap-4">
-              {/* Ads Getting Leads */}
-              <div
-                className="glass-card p-4"
-                style={{
-                  borderColor:
-                    leadAds.length > 0
-                      ? 'rgba(34,197,94,0.3)'
-                      : 'var(--color-border)',
-                }}
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ background: 'var(--color-green)' }}
-                  />
-                  <h3 className="text-sm font-semibold">
-                    Generating Leads ({leadAds.length})
-                  </h3>
-                </div>
-                {leadAds.length > 0 ? (
-                  <div className="space-y-2">
-                    {leadAds.map((ad, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center justify-between text-xs p-2 rounded"
-                        style={{ background: 'rgba(34,197,94,0.08)' }}
-                      >
-                        <span className="truncate max-w-[200px]">
-                          {ad.adName}
-                        </span>
-                        <div className="flex items-center gap-3">
-                          <span style={{ color: 'var(--color-green)' }}>
-                            {ad.totalLeads} leads
-                          </span>
-                          {ad.meetings > 0 && (
-                            <span style={{ color: 'var(--color-orange)' }}>
-                              {ad.meetings} meetings
-                            </span>
-                          )}
-                          <span style={{ color: 'var(--color-text-muted)' }}>
-                            ${ad.cpl.toFixed(2)} CPL
-                          </span>
-                          {ad.costPerMeeting > 0 && (
-                            <span style={{ color: 'var(--color-text-muted)' }}>
-                              ${ad.costPerMeeting.toFixed(0)}/mtg
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
+          {/* Overview View — original layout */}
+          {view === 'overview' && (
+            <>
+              {/* Pipeline Funnel + Ad Status side by side */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                <PipelineFunnel
+                  pipeline={pipeline}
+                  totalSpend={summary?.totalSpend}
+                />
+                <div className="grid grid-cols-1 gap-4">
+                  {/* Ads Getting Leads */}
                   <div
-                    className="text-xs py-3"
-                    style={{ color: 'var(--color-text-muted)' }}
+                    className="glass-card p-4"
+                    style={{
+                      borderColor:
+                        leadAds.length > 0
+                          ? 'rgba(34,197,94,0.3)'
+                          : 'var(--color-border)',
+                    }}
                   >
-                    No ads generating leads in this period
-                  </div>
-                )}
-              </div>
-
-              {/* Ads Needing Attention */}
-              <div
-                className="glass-card p-4"
-                style={{
-                  borderColor:
-                    zeroLeadAds.length > 0
-                      ? 'rgba(239,68,68,0.3)'
-                      : 'var(--color-border)',
-                }}
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ background: 'var(--color-red)' }}
-                  />
-                  <h3 className="text-sm font-semibold">
-                    Need Replacement ({zeroLeadAds.length})
-                  </h3>
-                </div>
-                {zeroLeadAds.length > 0 ? (
-                  <div className="space-y-2">
-                    {zeroLeadAds
-                      .sort((a, b) => b.totalSpend - a.totalSpend)
-                      .map((ad, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center justify-between text-xs p-2 rounded"
-                          style={{ background: 'rgba(239,68,68,0.08)' }}
-                        >
-                          <span className="truncate max-w-[200px]">
-                            {ad.adName}
-                          </span>
-                          <div className="flex items-center gap-3">
-                            <span style={{ color: 'var(--color-red)' }}>
-                              0 leads
+                    <div className="flex items-center gap-2 mb-3">
+                      <span
+                        className="w-2 h-2 rounded-full"
+                        style={{ background: 'var(--color-green)' }}
+                      />
+                      <h3 className="text-sm font-semibold">
+                        Generating Leads ({leadAds.length})
+                      </h3>
+                    </div>
+                    {leadAds.length > 0 ? (
+                      <div className="space-y-2">
+                        {leadAds.map((ad, i) => (
+                          <div
+                            key={i}
+                            className="flex items-center justify-between text-xs p-2 rounded"
+                            style={{ background: 'rgba(34,197,94,0.08)' }}
+                          >
+                            <span className="truncate max-w-[200px]">
+                              {ad.adName}
                             </span>
-                            <span style={{ color: 'var(--color-text-muted)' }}>
-                              ${ad.totalSpend.toFixed(2)} spent
-                            </span>
+                            <div className="flex items-center gap-3">
+                              <span style={{ color: 'var(--color-green)' }}>
+                                {ad.totalLeads} leads
+                              </span>
+                              {ad.meetings > 0 && (
+                                <span style={{ color: 'var(--color-orange)' }}>
+                                  {ad.meetings} meetings
+                                </span>
+                              )}
+                              <span style={{ color: 'var(--color-text-muted)' }}>
+                                ${ad.cpl.toFixed(2)} CPL
+                              </span>
+                              {ad.costPerMeeting > 0 && (
+                                <span style={{ color: 'var(--color-text-muted)' }}>
+                                  ${ad.costPerMeeting.toFixed(0)}/mtg
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                    ) : (
+                      <div
+                        className="text-xs py-3"
+                        style={{ color: 'var(--color-text-muted)' }}
+                      >
+                        No ads generating leads in this period
+                      </div>
+                    )}
                   </div>
-                ) : (
+
+                  {/* Ads Needing Attention */}
                   <div
-                    className="text-xs py-3"
-                    style={{ color: 'var(--color-text-muted)' }}
+                    className="glass-card p-4"
+                    style={{
+                      borderColor:
+                        zeroLeadAds.length > 0
+                          ? 'rgba(239,68,68,0.3)'
+                          : 'var(--color-border)',
+                    }}
                   >
-                    All ads are generating leads
+                    <div className="flex items-center gap-2 mb-3">
+                      <span
+                        className="w-2 h-2 rounded-full"
+                        style={{ background: 'var(--color-red)' }}
+                      />
+                      <h3 className="text-sm font-semibold">
+                        Need Replacement ({zeroLeadAds.length})
+                      </h3>
+                    </div>
+                    {zeroLeadAds.length > 0 ? (
+                      <div className="space-y-2">
+                        {zeroLeadAds
+                          .sort((a, b) => b.totalSpend - a.totalSpend)
+                          .map((ad, i) => (
+                            <div
+                              key={i}
+                              className="flex items-center justify-between text-xs p-2 rounded"
+                              style={{ background: 'rgba(239,68,68,0.08)' }}
+                            >
+                              <span className="truncate max-w-[200px]">
+                                {ad.adName}
+                              </span>
+                              <div className="flex items-center gap-3">
+                                <span style={{ color: 'var(--color-red)' }}>
+                                  0 leads
+                                </span>
+                                <span style={{ color: 'var(--color-text-muted)' }}>
+                                  ${ad.totalSpend.toFixed(2)} spent
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    ) : (
+                      <div
+                        className="text-xs py-3"
+                        style={{ color: 'var(--color-text-muted)' }}
+                      >
+                        All ads are generating leads
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* Chart */}
-          <div className="mb-6">
-            <SpendLeadsChart rawRows={rawRows} />
-          </div>
+              {/* Chart */}
+              <div className="mb-6">
+                <SpendLeadsChart rawRows={rawRows} />
+              </div>
+            </>
+          )}
 
-          {/* Leads Pipeline Table */}
-          {leads.length > 0 && (
-            <div className="mb-6">
-              <h2 className="text-sm font-semibold mb-3">
-                Leads Pipeline ({leads.length})
-              </h2>
-              <LeadsTable leads={leads} />
+          {/* Campaigns View */}
+          {view === 'campaigns' && (
+            <div>
+              <div className="mb-3">
+                <h2 className="text-sm font-semibold">Campaigns</h2>
+                <span
+                  className="text-xs"
+                  style={{ color: 'var(--color-text-muted)' }}
+                >
+                  Grouped by campaign · Click to expand ads
+                </span>
+              </div>
+              <CampaignTable ads={ads} />
             </div>
           )}
 
-          {/* Full Ad Table */}
-          <div>
-            <h2 className="text-sm font-semibold mb-3">
-              All Ads Performance
-            </h2>
-            <AdTable ads={ads} />
-          </div>
+          {/* Pipeline View */}
+          {view === 'pipeline' && (
+            <div>
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+                <h2 className="text-sm font-semibold">Sales Pipeline</h2>
+                <QualFilter />
+              </div>
+              <div className="mb-6">
+                <PipelineFunnel
+                  pipeline={filteredPipeline}
+                  totalSpend={summary?.totalSpend}
+                />
+              </div>
+
+              {/* Leads vs Meetings Chart */}
+              <div className="mb-6">
+                <LeadsMeetingsChart leads={leads} />
+              </div>
+
+              <div className="mb-3">
+                <h2 className="text-sm font-semibold">
+                  Leads ({filteredLeads.length})
+                </h2>
+              </div>
+              <LeadsTable leads={filteredLeads} />
+            </div>
+          )}
+
+          {/* All Ads View */}
+          {view === 'ads' && (
+            <div>
+              <div className="mb-3">
+                <h2 className="text-sm font-semibold">All Ads Performance</h2>
+                <span
+                  className="text-xs"
+                  style={{ color: 'var(--color-text-muted)' }}
+                >
+                  {ads.length} ads total | Click headers to sort
+                </span>
+              </div>
+              <AdTable ads={ads} />
+            </div>
+          )}
         </>
       )}
     </div>
