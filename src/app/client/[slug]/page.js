@@ -23,6 +23,7 @@ export default function ClientPage({ params }) {
   const [days, setDays] = useState(30);
   const [view, setView] = useState('overview'); // 'overview' | 'campaigns' | 'pipeline' | 'ads'
   const [qualFilter, setQualFilter] = useState('all'); // 'all' | 'qualified' | 'non-qualified'
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   // Custom date range
   const [dateMode, setDateMode] = useState('preset'); // 'preset' | 'custom'
@@ -58,6 +59,7 @@ export default function ClientPage({ params }) {
         const leadsJson = await leadsRes.json();
         setLeadsData(leadsJson);
       }
+      setLastUpdated(new Date());
     } catch (e) {
       setError(e.message);
     } finally {
@@ -78,10 +80,12 @@ export default function ClientPage({ params }) {
     return {
       ...ad,
       meetings: stats.meetingsBooked || 0,
+      qualifiedMeetings: stats.qualifiedMeetings || 0,
+      qualifiedLeads: stats.qualifiedLeads || 0,
       strategyCalls: stats.strategyCalls || 0,
       closed: stats.closed || 0,
       costPerMeeting:
-        stats.meetingsBooked > 0 ? ad.totalSpend / stats.meetingsBooked : 0,
+        stats.qualifiedMeetings > 0 ? ad.totalSpend / stats.qualifiedMeetings : 0,
     };
   });
 
@@ -91,8 +95,8 @@ export default function ClientPage({ params }) {
 
   // Apply qualified filter to leads
   const filteredLeads = leads.filter((l) => {
-    if (qualFilter === 'qualified') return l.meetingBooked;
-    if (qualFilter === 'non-qualified') return !l.meetingBooked;
+    if (qualFilter === 'qualified') return l.qualified;
+    if (qualFilter === 'non-qualified') return !l.qualified;
     return true;
   });
 
@@ -103,13 +107,16 @@ export default function ClientPage({ params }) {
       : filteredLeads.length > 0
         ? {
             total: filteredLeads.length,
+            qualifiedLeads: filteredLeads.filter((l) => l.qualified).length,
             pickedUp: filteredLeads.filter((l) => l.pickedUp).length,
             meetingsBooked: filteredLeads.filter((l) => l.meetingBooked).length,
+            qualifiedMeetings: filteredLeads.filter((l) => l.qualifiedMeeting).length,
+            unqualifiedMeetings: filteredLeads.filter((l) => l.meetingBooked && !l.qualifiedMeeting).length,
             strategyCalls: filteredLeads.filter((l) => l.strategyCall).length,
             followUps: filteredLeads.filter((l) => l.followUp).length,
             closed: filteredLeads.filter((l) => l.closed).length,
           }
-        : { total: 0, pickedUp: 0, meetingsBooked: 0, strategyCalls: 0, followUps: 0, closed: 0 };
+        : { total: 0, qualifiedLeads: 0, pickedUp: 0, meetingsBooked: 0, qualifiedMeetings: 0, unqualifiedMeetings: 0, strategyCalls: 0, followUps: 0, closed: 0 };
 
   // Date display
   const dateRangeLabel = (() => {
@@ -167,6 +174,14 @@ export default function ClientPage({ params }) {
               style={{ color: 'var(--color-text-muted)' }}
             >
               {dateRangeLabel}
+            </p>
+          )}
+          {lastUpdated && (
+            <p
+              className="text-xs mt-0.5"
+              style={{ color: 'var(--color-text-muted)' }}
+            >
+              Last updated: {lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
             </p>
           )}
         </div>
@@ -311,23 +326,25 @@ export default function ClientPage({ params }) {
               value={`$${summary?.totalSpend?.toFixed(2) || '0'}`}
             />
             <MetricCard
-              label="Leads"
-              value={summary?.totalLeads || 0}
+              label="Qualified Leads"
+              value={pipeline?.qualifiedLeads || 0}
+              subtext={`${summary?.totalLeads || 0} total`}
               color={
-                summary?.totalLeads > 0
+                pipeline?.qualifiedLeads > 0
                   ? 'var(--color-green)'
                   : 'var(--color-red)'
               }
             />
             <MetricCard
-              label="CPL"
-              value={summary?.cpl > 0 ? `$${summary.cpl.toFixed(2)}` : '-'}
+              label="CPL (Qualified)"
+              value={pipeline?.qualifiedLeads > 0 && summary?.totalSpend > 0 ? `$${(summary.totalSpend / pipeline.qualifiedLeads).toFixed(2)}` : '-'}
             />
             <MetricCard
-              label="Meetings Booked"
-              value={pipeline?.meetingsBooked || 0}
+              label="Qualified Meetings"
+              value={pipeline?.qualifiedMeetings || 0}
+              subtext={`${pipeline?.meetingsBooked || 0} total booked`}
               color={
-                pipeline?.meetingsBooked > 0
+                pipeline?.qualifiedMeetings > 0
                   ? 'var(--color-orange)'
                   : 'var(--color-text-muted)'
               }
@@ -335,8 +352,8 @@ export default function ClientPage({ params }) {
             <MetricCard
               label="Cost / Meeting"
               value={
-                pipeline?.meetingsBooked > 0 && summary?.totalSpend > 0
-                  ? `$${(summary.totalSpend / pipeline.meetingsBooked).toFixed(2)}`
+                pipeline?.qualifiedMeetings > 0 && summary?.totalSpend > 0
+                  ? `$${(summary.totalSpend / pipeline.qualifiedMeetings).toFixed(2)}`
                   : '-'
               }
               color="var(--color-orange)"
@@ -484,6 +501,20 @@ export default function ClientPage({ params }) {
                     )}
                   </div>
                 </div>
+              </div>
+
+              {/* Campaigns */}
+              <div className="mb-6">
+                <div className="mb-3">
+                  <h2 className="text-sm font-semibold">Campaigns</h2>
+                  <span
+                    className="text-xs"
+                    style={{ color: 'var(--color-text-muted)' }}
+                  >
+                    Grouped by campaign · Click to expand ads
+                  </span>
+                </div>
+                <CampaignTable ads={ads} />
               </div>
 
               {/* Chart */}

@@ -19,9 +19,11 @@ export default function CampaignTable({ ads, showClient = false }) {
         ads: [],
         totalSpend: 0,
         totalLeads: 0,
+        qualifiedLeads: 0,
         totalImpressions: 0,
         totalLinkClicks: 0,
         meetings: 0,
+        qualifiedMeetings: 0,
         strategyCalls: 0,
         closed: 0,
       };
@@ -30,9 +32,11 @@ export default function CampaignTable({ ads, showClient = false }) {
     c.ads.push(ad);
     c.totalSpend += ad.totalSpend || 0;
     c.totalLeads += ad.totalLeads || 0;
+    c.qualifiedLeads += ad.qualifiedLeads || 0;
     c.totalImpressions += ad.totalImpressions || 0;
     c.totalLinkClicks += ad.totalLinkClicks || 0;
     c.meetings += ad.meetings || 0;
+    c.qualifiedMeetings += ad.qualifiedMeetings || 0;
     c.strategyCalls += ad.strategyCalls || 0;
     c.closed += ad.closed || 0;
   });
@@ -40,8 +44,8 @@ export default function CampaignTable({ ads, showClient = false }) {
   // Compute derived metrics
   const campaigns = Object.values(campaignMap).map((c) => ({
     ...c,
-    cpl: c.totalLeads > 0 ? c.totalSpend / c.totalLeads : 0,
-    costPerMeeting: c.meetings > 0 ? c.totalSpend / c.meetings : 0,
+    cpl: c.qualifiedLeads > 0 ? c.totalSpend / c.qualifiedLeads : 0,
+    costPerMeeting: c.qualifiedMeetings > 0 ? c.totalSpend / c.qualifiedMeetings : 0,
     adCount: c.ads.length,
   }));
 
@@ -185,20 +189,34 @@ function CampaignRow({ campaign, showClient, isExpanded, onToggle }) {
           </span>
         </td>
         <td>
-          <span
-            className="font-bold"
-            style={{ color: campaign.totalLeads > 0 ? 'var(--color-green)' : 'var(--color-text-muted)' }}
-          >
-            {campaign.totalLeads}
-          </span>
+          <div className="flex items-center gap-1">
+            <span
+              className="font-bold"
+              style={{ color: campaign.qualifiedLeads > 0 ? 'var(--color-green)' : 'var(--color-text-muted)' }}
+            >
+              {campaign.qualifiedLeads}
+            </span>
+            {campaign.totalLeads !== campaign.qualifiedLeads && (
+              <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                / {campaign.totalLeads}
+              </span>
+            )}
+          </div>
         </td>
         <td>
-          <span
-            className="font-bold"
-            style={{ color: campaign.meetings > 0 ? 'var(--color-orange)' : 'var(--color-text-muted)' }}
-          >
-            {campaign.meetings}
-          </span>
+          <div className="flex items-center gap-1">
+            <span
+              className="font-bold"
+              style={{ color: campaign.qualifiedMeetings > 0 ? 'var(--color-orange)' : 'var(--color-text-muted)' }}
+            >
+              {campaign.qualifiedMeetings}
+            </span>
+            {campaign.meetings !== campaign.qualifiedMeetings && (
+              <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                / {campaign.meetings}
+              </span>
+            )}
+          </div>
         </td>
         <td>${campaign.totalSpend.toFixed(2)}</td>
         <td>
@@ -246,20 +264,34 @@ function CampaignRow({ campaign, showClient, isExpanded, onToggle }) {
               </div>
             </td>
             <td>
-              <span
-                className="text-[12px]"
-                style={{ color: ad.totalLeads > 0 ? 'var(--color-green)' : 'var(--color-text-muted)' }}
-              >
-                {ad.totalLeads}
-              </span>
+              <div className="flex items-center gap-1">
+                <span
+                  className="text-[12px]"
+                  style={{ color: (ad.qualifiedLeads || 0) > 0 ? 'var(--color-green)' : 'var(--color-text-muted)' }}
+                >
+                  {ad.qualifiedLeads || 0}
+                </span>
+                {ad.totalLeads !== (ad.qualifiedLeads || 0) && (
+                  <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                    / {ad.totalLeads}
+                  </span>
+                )}
+              </div>
             </td>
             <td>
-              <span
-                className="text-[12px]"
-                style={{ color: (ad.meetings || 0) > 0 ? 'var(--color-orange)' : 'var(--color-text-muted)' }}
-              >
-                {ad.meetings || 0}
-              </span>
+              <div className="flex items-center gap-1">
+                <span
+                  className="text-[12px]"
+                  style={{ color: (ad.qualifiedMeetings || 0) > 0 ? 'var(--color-orange)' : 'var(--color-text-muted)' }}
+                >
+                  {ad.qualifiedMeetings || 0}
+                </span>
+                {(ad.meetings || 0) !== (ad.qualifiedMeetings || 0) && (
+                  <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                    / {ad.meetings || 0}
+                  </span>
+                )}
+              </div>
             </td>
             <td className="text-[12px]">${ad.totalSpend.toFixed(2)}</td>
             <td className="text-[12px]">

@@ -66,15 +66,19 @@ export async function GET(request) {
         adPipelineStats[adName] = {
           adName,
           leads: 0,
+          qualifiedLeads: 0,
           pickedUp: 0,
           meetingsBooked: 0,
+          qualifiedMeetings: 0,
           strategyCalls: 0,
           closed: 0,
         };
       }
       adPipelineStats[adName].leads++;
+      if (lead.qualified) adPipelineStats[adName].qualifiedLeads++;
       if (lead.pickedUp) adPipelineStats[adName].pickedUp++;
       if (lead.meetingBooked) adPipelineStats[adName].meetingsBooked++;
+      if (lead.qualifiedMeeting) adPipelineStats[adName].qualifiedMeetings++;
       if (lead.strategyCall) adPipelineStats[adName].strategyCalls++;
       if (lead.closed) adPipelineStats[adName].closed++;
     });

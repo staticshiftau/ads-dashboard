@@ -141,8 +141,12 @@ function parseLead(raw) {
     question3: raw.question_3 || '',
     answer3: raw.answer_3 || '',
     // Pipeline stages (truthy = completed that stage)
+    pickUpStatus: String(raw['pick_up'] || '').trim(),
     pickedUp: !!raw['pick_up'],
+    qualified: !['unqualified', 'fake'].includes(String(raw['pick_up'] || '').trim().toLowerCase()),
     meetingBooked: String(raw['discovery'] || '').toLowerCase() === 'booked',
+    qualifiedMeeting: String(raw['discovery'] || '').toLowerCase() === 'booked'
+      && !['unqualified', 'fake'].includes(String(raw['pick_up'] || '').trim().toLowerCase()),
     followUp: false,
     strategyCall: !!raw['sales_call'],
     closed: !!raw['close'],
@@ -232,8 +236,11 @@ export function processLeads(rawLeads) {
  */
 export function getPipelineSummary(leads) {
   const total = leads.length;
+  const qualifiedLeads = leads.filter((l) => l.qualified).length;
   const pickedUp = leads.filter((l) => l.pickedUp).length;
   const meetingsBooked = leads.filter((l) => l.meetingBooked).length;
+  const qualifiedMeetings = leads.filter((l) => l.qualifiedMeeting).length;
+  const unqualifiedMeetings = leads.filter((l) => l.meetingBooked && !l.qualifiedMeeting).length;
   const followUps = leads.filter((l) => l.followUp).length;
   const strategyCalls = leads.filter((l) => l.strategyCall).length;
   const closed = leads.filter((l) => l.closed).length;
@@ -246,8 +253,11 @@ export function getPipelineSummary(leads) {
 
   return {
     total,
+    qualifiedLeads,
     pickedUp,
     meetingsBooked,
+    qualifiedMeetings,
+    unqualifiedMeetings,
     followUps,
     strategyCalls,
     closed,

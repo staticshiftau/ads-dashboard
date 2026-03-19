@@ -19,6 +19,8 @@ export default function PipelineFunnel({ pipeline, totalSpend }) {
     {
       label: 'Meeting Booked',
       count: pipeline.meetingsBooked,
+      qualified: pipeline.qualifiedMeetings,
+      unqualified: pipeline.unqualifiedMeetings,
       color: 'var(--color-orange)',
       bgColor: 'rgba(249,115,22,0.1)',
     },
@@ -38,15 +40,15 @@ export default function PipelineFunnel({ pipeline, totalSpend }) {
 
   const maxCount = Math.max(pipeline.total, 1);
 
-  // Derived metrics
+  // Derived metrics (use qualified counts for cost calculations)
   const costPerMeeting =
-    pipeline.meetingsBooked > 0 && totalSpend
-      ? (totalSpend / pipeline.meetingsBooked).toFixed(2)
+    pipeline.qualifiedMeetings > 0 && totalSpend
+      ? (totalSpend / pipeline.qualifiedMeetings).toFixed(2)
       : null;
 
   const leadToMeetingRate =
     pipeline.total > 0
-      ? ((pipeline.meetingsBooked / pipeline.total) * 100).toFixed(0)
+      ? ((pipeline.qualifiedMeetings / pipeline.total) * 100).toFixed(0)
       : 0;
 
   return (
@@ -57,7 +59,7 @@ export default function PipelineFunnel({ pipeline, totalSpend }) {
           {costPerMeeting && (
             <div className="flex items-center gap-1.5">
               <span style={{ color: 'var(--color-text-muted)' }}>
-                Cost / Meeting
+                Cost / Qual. Meeting
               </span>
               <span className="font-bold" style={{ color: 'var(--color-orange)' }}>
                 ${costPerMeeting}
@@ -100,18 +102,26 @@ export default function PipelineFunnel({ pipeline, totalSpend }) {
               >
                 {stage.label}
               </div>
-              <div className="flex-1 relative">
-                <div
-                  className="h-8 rounded-md flex items-center px-3 transition-all duration-500"
-                  style={{
-                    width: `${Math.max(width, 8)}%`,
-                    background: stage.bgColor,
-                    border: `1px solid ${stage.color}20`,
-                  }}
-                >
-                  <span className="text-xs font-bold" style={{ color: stage.color }}>
-                    {stage.count}
-                  </span>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="h-8 rounded-md flex items-center px-3 transition-all duration-500 shrink-0"
+                    style={{
+                      width: `${Math.max(width, 8)}%`,
+                      minWidth: 'fit-content',
+                      background: stage.bgColor,
+                      border: `1px solid ${stage.color}20`,
+                    }}
+                  >
+                    <span className="text-xs font-bold whitespace-nowrap" style={{ color: stage.color }}>
+                      {stage.count}
+                    </span>
+                  </div>
+                  {stage.qualified != null && stage.count > 0 && (
+                    <span className="text-[10px] whitespace-nowrap shrink-0" style={{ color: 'var(--color-text-muted)' }}>
+                      {stage.qualified} qual · {stage.unqualified} unqual
+                    </span>
+                  )}
                 </div>
               </div>
               {conversionFromPrev && (
