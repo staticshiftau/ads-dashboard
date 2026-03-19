@@ -6,234 +6,248 @@
 
 ---
 
-## How It All Works (Big Picture)
+## How It All Works (The Simple Version)
+
+Think of it like this:
+
+- **GitHub** = the filing cabinet where all the code is stored (like Google Drive but for code)
+- **Vercel** = the web host that takes the code from GitHub and turns it into the live website
+- **Meta API** = Facebook's data feed that gives us ad performance numbers
+- **Google Sheets** = where the leads and pipeline data lives
+
+Here's how they connect:
 
 ```
-Meta Ads API (Facebook)
-        |
-        v
-  [Next.js App]  <---->  Google Sheets (leads tracker)
-        |
-        v
-  Vercel (hosting)  <----  GitHub (code)
+Facebook Ads (Meta)  ------>  The Dashboard App  <------  Google Sheets (leads)
+                                    |
+                                    |  (code stored in)
+                                    v
+                                 GitHub
+                                    |
+                                    |  (auto-published by)
+                                    v
+                                  Vercel  --->  https://ads-dashboard-ecru.vercel.app
 ```
 
-1. The dashboard pulls ad performance data **directly from Meta's Marketing API** in real time
-2. Leads/pipeline data comes from **Google Sheets** (one shared leads tracker spreadsheet with tabs per client)
-3. The code lives on **GitHub** under Karl's account
-4. **Vercel** auto-deploys every time code is pushed to GitHub
+**The key thing to understand:** When someone changes the code and pushes it to GitHub, Vercel automatically picks it up and updates the live dashboard within 1-2 minutes. No extra steps needed.
 
 ---
 
-## Accounts & Access
+## Where Everything Lives
 
-| Service | Account Owner | URL |
-|---------|--------------|-----|
-| GitHub | Karl (staticshiftau) | https://github.com/staticshiftau/ads-dashboard |
-| Vercel | Karl | https://vercel.com (linked to GitHub) |
-| Meta API | Static Shift Business Manager | Token stored in Vercel env vars |
-| Google Sheets | Shared | Leads tracker + per-client ad performance sheets |
+| What | Where | How to Access |
+|------|-------|---------------|
+| The live dashboard | Vercel | Go to https://ads-dashboard-ecru.vercel.app |
+| The code | GitHub | Go to https://github.com/staticshiftau/ads-dashboard |
+| Hosting settings | Vercel | Log in at https://vercel.com with your (Karl's) account |
+| The Meta API token | Vercel + local `.env.local` file | Vercel dashboard > Project > Settings > Environment Variables |
+| Leads data | Google Sheets | The shared leads tracker spreadsheet (one tab per client) |
+| Ad performance data | Facebook | Pulled automatically from Meta's API using your token |
+
+**Important:** The code is on GitHub, NOT on Vercel. Vercel just reads from GitHub and hosts the website. If you need to see or change the code, go to GitHub.
 
 ---
 
-## How to Make Changes (Step by Step)
+## How Pauline Currently Works on This
 
-### Prerequisites
-- **Node.js** installed (v18+) — download from https://nodejs.org
-- **Git** installed — comes pre-installed on Mac, or download from https://git-scm.com
-- A code editor — **VS Code** recommended (https://code.visualstudio.com)
-- **Claude Code** (optional but recommended) — this is the AI tool Pauline uses
+Here's the exact workflow Pauline follows when making changes:
 
-### 1. Clone the Repository (First Time Only)
+1. Opens the project folder on her computer (`ads-dashboard/`)
+2. Uses **Claude Code** (an AI coding tool) to make changes to the code
+3. Tests locally by running `npm run dev` and checking http://localhost:3000
+4. When happy with the changes, pushes to GitHub:
+   ```
+   git add .
+   git commit -m "what I changed"
+   git push origin main
+   ```
+5. Vercel auto-detects the push and deploys the update (1-2 minutes)
+6. Checks the live dashboard to make sure it works
 
+That's the full process. There's no manual deploy step — pushing to GitHub IS deploying.
+
+---
+
+## If You Need Someone Else to Work on This
+
+Give them:
+
+1. **Access to the GitHub repo** — Add them as a collaborator at https://github.com/staticshiftau/ads-dashboard/settings/access
+2. **The Meta access token** — They'll need this in a `.env.local` file to run locally (it's also stored in Vercel's environment variables, so the live site always has it)
+3. **This manual** — It's in the repo itself at `OPERATIONS-MANUAL.md`
+
+They'll need to install a few free tools on their computer:
+- **Node.js** (v18 or higher) — download at https://nodejs.org (click the big green button)
+- **Git** — already on Mac; for Windows download at https://git-scm.com
+- **VS Code** (or any code editor) — download at https://code.visualstudio.com
+
+Then they run these commands once to set up:
 ```bash
 git clone https://github.com/staticshiftau/ads-dashboard.git
 cd ads-dashboard
 npm install
 ```
 
-### 2. Set Up Environment Variables
-
-Create a file called `.env.local` in the project root with:
-
-```
-META_ACCESS_TOKEN=your_meta_access_token_here
-```
-
-The Meta access token is a **System User Token** from Meta Business Manager. It's also stored in Vercel's environment variables (Settings > Environment Variables).
-
-### 3. Run Locally
-
+And to start working:
 ```bash
 npm run dev
 ```
 
-Opens at http://localhost:3000. Changes auto-refresh in the browser.
-
-### 4. Make Your Changes
-
-Edit the relevant files (see "Key Files" section below).
-
-### 5. Push to GitHub (This Deploys Automatically)
-
-```bash
-git add .
-git commit -m "describe what you changed"
-git push origin main
-```
-
-That's it. Vercel detects the push and deploys automatically. Takes about 1-2 minutes. Check https://ads-dashboard-ecru.vercel.app to verify.
+That opens the dashboard on their computer at http://localhost:3000 where they can see changes in real time.
 
 ---
 
-## Key Files — What Does What
+## How to Add a New Client
 
-### Client Configuration
-**`src/lib/clients.js`** — The list of all clients. To add a new client, add an entry:
+You need 3 things from the client:
+1. Their **Facebook Ad Account ID** (looks like `act_123456789`) — find it in Meta Business Manager > Ad Accounts
+2. A **Google Sheet** for their ad performance data — copy an existing client's sheet and share it publicly
+3. A new **tab** in the leads tracker spreadsheet with the client's name
+
+Then edit 2 files in the code:
+
+### File 1: `src/lib/clients.js`
+Add a new block like this (copy-paste an existing one and change the values):
 
 ```javascript
 {
-  slug: 'client-name',           // URL-friendly name (lowercase, hyphens)
-  name: 'Client Display Name',   // What shows in the dashboard
-  sheetId: 'google_sheet_id',    // Their Ad Performance Google Sheet ID
-  sheetTab: 'Ad Performance',    // Tab name in the sheet
-  fbAdAccountId: 'act_XXXXX',    // Facebook Ad Account ID
-  slackChannelId: 'CXXXXXXX',    // Slack channel (optional, can be null)
-}
+  slug: 'client-name',           // lowercase, hyphens instead of spaces (used in the URL)
+  name: 'Client Display Name',   // how it shows in the dashboard
+  sheetId: 'google_sheet_id',    // the long ID from the Google Sheet URL
+  sheetTab: 'Ad Performance',    // the tab name in the sheet
+  fbAdAccountId: 'act_XXXXX',    // their Facebook Ad Account ID
+  slackChannelId: null,          // Slack channel ID, or null if none
+},
 ```
 
-### Leads Tracker
-**`src/lib/leads.js`** — Fetches and processes leads from the shared Google Sheet.
+**How to find the Google Sheet ID:** Open the sheet in your browser. The URL looks like:
+`https://docs.google.com/spreadsheets/d/THIS_PART_IS_THE_ID/edit`
 
-- The leads tracker spreadsheet ID: `18UReQjJDNgP0976BPiaOjP9DRcxvA6e-Q8SsCiS0aMc`
-- Each client has their own tab in this spreadsheet
-- To add a new client's tab, add an entry to the `LEADS_SHEETS` array at the top of the file
+### File 2: `src/lib/leads.js`
+Add a new block to the `LEADS_SHEETS` array at the top:
 
-**Qualification Logic:**
-- A lead is **qualified** unless the `pick_up` column says "Unqualified" or "Fake"
-- A meeting is **qualified** if `discovery` = "Booked" AND the lead is qualified
-- All cost metrics (CPL, Cost/Meeting) use qualified counts only
+```javascript
+{
+  sheetId: '18UReQjJDNgP0976BPiaOjP9DRcxvA6e-Q8SsCiS0aMc',
+  sheetTab: 'Client Name',     // must match the tab name exactly
+  clientSlug: 'client-name',   // must match the slug from clients.js
+},
+```
 
-### Meta API Integration
-**`src/lib/meta.js`** — Pulls ad performance data from Facebook's Marketing API (v24.0).
-
-### Google Sheets Integration
-**`src/lib/sheets.js`** — Fetches data from Google Sheets using the public visualization API (no auth needed — sheets must be shared as "Anyone with the link can view").
-
-### API Routes
-- **`src/app/api/campaigns/route.js`** — Serves ad performance data
-- **`src/app/api/leads/route.js`** — Serves leads/pipeline data
-
-### Pages
-- **`src/app/page.js`** — Home page (all clients overview)
-- **`src/app/client/[slug]/page.js`** — Individual client dashboard (the main page with Overview, Campaigns, Pipeline, All Ads tabs)
-
-### UI Components (in `src/components/`)
-| Component | What It Does |
-|-----------|-------------|
-| `ClientCard.jsx` | Card on the home page for each client |
-| `MetricCard.jsx` | Small stat card (spend, leads, CPL, etc.) |
-| `CampaignTable.jsx` | Campaigns grouped with expandable ads |
-| `AdTable.jsx` | All ads in a sortable table |
-| `PipelineFunnel.jsx` | Sales pipeline visualization |
-| `LeadsTable.jsx` | Individual leads list with stage indicators |
-| `LeadsMeetingsChart.jsx` | Daily leads vs meetings chart |
-| `SpendLeadsChart.jsx` | Daily spend vs leads chart |
+Then push to GitHub and it auto-deploys.
 
 ---
 
-## Common Tasks
+## How the Dashboard Decides "Qualified" vs "Unqualified"
 
-### Add a New Client
+This is based on the leads tracker Google Sheet:
 
-1. **Get their Facebook Ad Account ID** — From Meta Business Manager > Ad Accounts
-2. **Create their Google Sheet** — Copy an existing client's Ad Performance sheet, share it publicly
-3. **Create their tab** in the leads tracker spreadsheet
-4. **Edit two files:**
-   - `src/lib/clients.js` — Add client config
-   - `src/lib/leads.js` — Add leads sheet tab entry
-5. Push to GitHub (auto-deploys)
+**Qualified Lead:** Any lead where the `pick_up` column is empty OR has any value EXCEPT "Unqualified" or "Fake"
 
-### Update the Meta Access Token
+**Unqualified Lead:** The `pick_up` column says "Unqualified" or "Fake"
 
-If the token expires or needs rotation:
-1. Generate a new System User token from Meta Business Manager
-2. Update in **two places:**
-   - `.env.local` (for local development)
-   - Vercel dashboard > Project Settings > Environment Variables > `META_ACCESS_TOKEN`
-3. Redeploy on Vercel (Settings > Deployments > Redeploy, or just push any commit)
+**Qualified Meeting:** The `discovery` column says "Booked" AND the lead is qualified
 
-### Check Why Data Looks Wrong
+**Unqualified Meeting:** The `discovery` column says "Booked" BUT the lead is unqualified
 
-1. Check the Google Sheet — is the data actually there?
-2. Check that the sheet is shared publicly ("Anyone with the link can view")
-3. Check the Meta token hasn't expired (dashboard will show errors)
-4. Check the "Last updated" timestamp on the dashboard — if it's stale, try the Refresh button
+**All cost metrics** (Cost per Lead, Cost per Meeting) only count qualified leads/meetings. This way you see the real cost of acquiring actual prospects, not inflated by junk leads.
 
 ---
 
-## Data Flow Details
+## How to Update the Meta (Facebook) Token
 
-### Ad Performance Data
-```
-Meta Marketing API
-  → /api/campaigns route fetches insights (spend, leads, clicks, impressions)
-  → Cached for 5 minutes
-  → Displayed in MetricCards, CampaignTable, AdTable, SpendLeadsChart
-```
+The Meta access token is what lets the dashboard pull data from Facebook. If it expires:
 
-### Leads & Pipeline Data
-```
-Google Sheets (Leads Tracker)
-  → /api/leads route fetches all tabs
-  → Each lead parsed for pipeline stage (pick_up, discovery, sales_call, close)
-  → Qualified vs unqualified classification applied
-  → Per-ad stats computed (which ads generate qualified meetings)
-  → Displayed in PipelineFunnel, LeadsTable, LeadsMeetingsChart
-```
+1. Go to **Meta Business Manager** > Business Settings > System Users
+2. Generate a new token for the System User that has access to all ad accounts
+3. Update it in **two places:**
+   - **Vercel** (for the live site): Go to https://vercel.com > Your Project > Settings > Environment Variables > Edit `META_ACCESS_TOKEN`
+   - **Local `.env.local` file** (for local development): Open the file and replace the old token
 
-### Pipeline Stages (in order)
-1. **Lead** — Form submitted via Facebook ad
-2. **Picked Up** — `pick_up` column has a value
-3. **Meeting Booked** — `discovery` column = "Booked"
-4. **Strategy Call** — `sales_call` column has a value
-5. **Closed** — `close` column has a value
+After updating on Vercel, you may need to redeploy. Go to Vercel > Deployments > click the three dots on the latest deployment > Redeploy.
 
 ---
 
-## Tech Stack
+## Pipeline Stages Explained
 
-| Technology | Purpose |
-|-----------|---------|
-| Next.js 16 | React framework (frontend + API) |
-| React 19 | UI library |
-| Vercel | Hosting & auto-deployment |
-| GitHub | Code repository |
-| Meta Marketing API v24.0 | Ad performance data |
-| Google Sheets (gviz API) | Leads & pipeline data |
+The dashboard tracks leads through these stages (in order). Each stage corresponds to a column in the leads tracker Google Sheet:
+
+| Stage | Sheet Column | What It Means |
+|-------|-------------|---------------|
+| Lead | (auto) | Someone submitted a form through a Facebook ad |
+| Picked Up | `pick_up` | Someone contacted/responded to the lead |
+| Meeting Booked | `discovery` | Value is "Booked" — a meeting was scheduled |
+| Strategy Call | `sales_call` | A strategy/sales call happened |
+| Closed | `close` | The deal was closed |
+
+---
+
+## Project Structure (What's in the Code)
+
+```
+ads-dashboard/
+  src/
+    app/
+      page.js                    -- Home page (shows all clients)
+      client/[slug]/page.js      -- Individual client page (the main dashboard view)
+      api/
+        campaigns/route.js       -- Backend: fetches ad data from Facebook
+        leads/route.js           -- Backend: fetches leads from Google Sheets
+    lib/
+      clients.js                 -- Client list (names, sheet IDs, ad account IDs)
+      leads.js                   -- Leads processing & qualification logic
+      meta.js                    -- Facebook API connection
+      sheets.js                  -- Google Sheets connection
+    components/
+      ClientCard.jsx             -- Client card on home page
+      MetricCard.jsx             -- Small stat box (spend, leads, CPL, etc.)
+      CampaignTable.jsx          -- Campaign table with expandable ads
+      AdTable.jsx                -- All ads table
+      PipelineFunnel.jsx         -- Sales pipeline funnel chart
+      LeadsTable.jsx             -- List of individual leads
+      LeadsMeetingsChart.jsx     -- Leads vs meetings bar chart
+      SpendLeadsChart.jsx        -- Daily spend vs leads chart
+  .env.local                     -- Meta token (NOT uploaded to GitHub for security)
+  package.json                   -- Project dependencies and scripts
+  OPERATIONS-MANUAL.md           -- This file
+```
 
 ---
 
 ## Troubleshooting
 
-| Problem | Solution |
-|---------|----------|
-| Dashboard shows "Failed to fetch" | Check Meta token — may have expired |
-| Leads not showing | Check Google Sheet is publicly shared |
-| New client not appearing | Make sure you added them to both `clients.js` and `leads.js` |
-| Deploy not working | Check Vercel dashboard for build errors |
-| Numbers look wrong | Check the Google Sheet data directly, then hit Refresh |
+**Dashboard shows an error or "Failed to fetch"**
+- Most likely the Meta token expired. Follow the "Update the Meta Token" section above.
+
+**Leads aren't showing for a client**
+- Check the Google Sheet is shared publicly (Share > Anyone with the link > Viewer)
+- Check the tab name in `leads.js` matches the actual tab name in the spreadsheet exactly (case-sensitive)
+
+**A new client isn't appearing on the dashboard**
+- Make sure you added them to BOTH `clients.js` AND `leads.js`
+- Make sure you pushed the changes to GitHub
+
+**Changes aren't showing on the live dashboard**
+- Check Vercel for build errors: https://vercel.com > Your Project > Deployments
+- Make sure you actually pushed to GitHub (`git push origin main`)
+- Try a hard refresh in your browser (Cmd+Shift+R on Mac, Ctrl+Shift+R on Windows)
+
+**Numbers look wrong**
+- Check the Google Sheet data directly — the dashboard just displays what's in the sheet
+- Hit the "Refresh" button on the dashboard to pull fresh data
+- Check the "Last updated" timestamp — if it's recent, the data is current
 
 ---
 
-## If You Need to Rebuild From Scratch
+## Starting Completely From Scratch
 
-Everything you need is in the GitHub repo: https://github.com/staticshiftau/ads-dashboard
+If you ever need to rebuild everything (new computer, new developer, etc.), everything you need is in the GitHub repo:
 
-1. Clone the repo
-2. Run `npm install`
-3. Create `.env.local` with the Meta token
-4. `npm run dev` to run locally, or connect to Vercel for deployment
-5. On Vercel: Import the GitHub repo, add `META_ACCESS_TOKEN` as an environment variable, deploy
+1. Go to https://github.com/staticshiftau/ads-dashboard
+2. Clone it: `git clone https://github.com/staticshiftau/ads-dashboard.git`
+3. Install dependencies: `cd ads-dashboard && npm install`
+4. Create `.env.local` with the Meta token
+5. Run locally: `npm run dev`
+6. To deploy: connect the repo to Vercel, add `META_ACCESS_TOKEN` as an environment variable
 
-The Google Sheets and Meta Business Manager are separate — the dashboard just reads from them.
+The Google Sheets and Meta Business Manager are completely separate services — the dashboard just reads data from them. So even if the dashboard code is lost, the data is safe.
