@@ -30,6 +30,11 @@ const LEADS_SHEETS = [
     sheetTab: 'Stirling Marketing',
     clientSlug: 'stirling-marketing',
   },
+  {
+    sheetId: '18UReQjJDNgP0976BPiaOjP9DRcxvA6e-Q8SsCiS0aMc',
+    sheetTab: 'Homes by Lella',
+    clientSlug: 'homes-by-lella',
+  },
 ];
 
 /**

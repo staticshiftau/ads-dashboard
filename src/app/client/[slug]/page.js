@@ -74,9 +74,10 @@ export default function ClientPage({ params }) {
   const leads = leadsData?.leads || [];
   const adPipelineStats = leadsData?.adPipelineStats || {};
 
-  // Enrich ads with pipeline data
+  // Enrich ads with pipeline data (key by campaign+ad to handle same ad names across campaigns)
   const ads = rawAds.map((ad) => {
-    const stats = adPipelineStats[ad.adName] || {};
+    const key = `${ad.campaignName || 'Unknown'}|||${ad.adName || 'Unknown'}`;
+    const stats = adPipelineStats[key] || {};
     return {
       ...ad,
       meetings: stats.meetingsBooked || 0,

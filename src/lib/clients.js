@@ -40,6 +40,14 @@ export const clients = [
     fbAdAccountId: 'act_2250556082119896',
     slackChannelId: 'C095FE6NZ3J',
   },
+  {
+    slug: 'homes-by-lella',
+    name: 'Homes by Lella',
+    sheetId: '1tPPBl7Rj6MTlAZ__U9HVnHbtaHMgrVj35__a-VuPuYI',
+    sheetTab: 'Ad Performance',
+    fbAdAccountId: 'act_1456930729494105',
+    slackChannelId: 'C0AKLD093SB',
+  },
 ];
 
 export function getClient(slug) {
