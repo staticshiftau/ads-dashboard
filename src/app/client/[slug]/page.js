@@ -73,6 +73,7 @@ export default function ClientPage({ params }) {
   const pipeline = leadsData?.pipeline;
   const leads = leadsData?.leads || [];
   const adPipelineStats = leadsData?.adPipelineStats || {};
+  const campaignPipelineStats = leadsData?.campaignPipelineStats || {};
 
   // Enrich ads with pipeline data
   // Try composite key first, then fuzzy campaign match, then adName-only (single match only)
@@ -540,7 +541,7 @@ export default function ClientPage({ params }) {
                     Grouped by campaign · Click to expand ads
                   </span>
                 </div>
-                <CampaignTable ads={ads} />
+                <CampaignTable ads={ads} campaignPipelineStats={campaignPipelineStats} />
               </div>
 
               {/* Chart */}
@@ -562,7 +563,7 @@ export default function ClientPage({ params }) {
                   Grouped by campaign · Click to expand ads
                 </span>
               </div>
-              <CampaignTable ads={ads} />
+              <CampaignTable ads={ads} campaignPipelineStats={campaignPipelineStats} />
             </div>
           )}
 

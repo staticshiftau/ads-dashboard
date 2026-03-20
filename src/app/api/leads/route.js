@@ -86,11 +86,37 @@ export async function GET(request) {
       if (lead.closed) adPipelineStats[key].closed++;
     });
 
+    // 9. Per-campaign pipeline breakdown (directly from leads, no ad-name matching needed)
+    const campaignPipelineStats = {};
+    leads.forEach((lead) => {
+      const campaignName = lead.campaignName || 'Unknown';
+      if (!campaignPipelineStats[campaignName]) {
+        campaignPipelineStats[campaignName] = {
+          campaignName,
+          leads: 0,
+          qualifiedLeads: 0,
+          pickedUp: 0,
+          meetingsBooked: 0,
+          qualifiedMeetings: 0,
+          strategyCalls: 0,
+          closed: 0,
+        };
+      }
+      campaignPipelineStats[campaignName].leads++;
+      if (lead.qualified) campaignPipelineStats[campaignName].qualifiedLeads++;
+      if (lead.pickedUp) campaignPipelineStats[campaignName].pickedUp++;
+      if (lead.meetingBooked) campaignPipelineStats[campaignName].meetingsBooked++;
+      if (lead.qualifiedMeeting) campaignPipelineStats[campaignName].qualifiedMeetings++;
+      if (lead.strategyCall) campaignPipelineStats[campaignName].strategyCalls++;
+      if (lead.closed) campaignPipelineStats[campaignName].closed++;
+    });
+
     return NextResponse.json({
       leads,
       pipeline,
       clientPipelines,
       adPipelineStats,
+      campaignPipelineStats,
       totalLeads: leads.length,
     }, { headers: headers });
   } catch (error) {

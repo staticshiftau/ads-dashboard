@@ -2,12 +2,12 @@
 
 import { useState } from 'react';
 
-export default function CampaignTable({ ads, showClient = false }) {
+export default function CampaignTable({ ads, showClient = false, campaignPipelineStats = {} }) {
   const [sortBy, setSortBy] = useState('totalLeads');
   const [sortDir, setSortDir] = useState('desc');
   const [expanded, setExpanded] = useState(new Set());
 
-  // Group ads by campaign
+  // Group ads by campaign (spend, clicks, impressions from Meta)
   const campaignMap = {};
   ads.forEach((ad) => {
     const key = ad.campaignName || 'Unknown Campaign';
@@ -18,36 +18,56 @@ export default function CampaignTable({ ads, showClient = false }) {
         clientSlug: ad.clientSlug || '',
         ads: [],
         totalSpend: 0,
-        totalLeads: 0,
-        qualifiedLeads: 0,
         totalImpressions: 0,
         totalLinkClicks: 0,
-        meetings: 0,
-        qualifiedMeetings: 0,
-        strategyCalls: 0,
-        closed: 0,
       };
     }
     const c = campaignMap[key];
     c.ads.push(ad);
     c.totalSpend += ad.totalSpend || 0;
-    c.totalLeads += ad.totalLeads || 0;
-    c.qualifiedLeads += ad.qualifiedLeads || 0;
     c.totalImpressions += ad.totalImpressions || 0;
     c.totalLinkClicks += ad.totalLinkClicks || 0;
-    c.meetings += ad.meetings || 0;
-    c.qualifiedMeetings += ad.qualifiedMeetings || 0;
-    c.strategyCalls += ad.strategyCalls || 0;
-    c.closed += ad.closed || 0;
   });
 
-  // Compute derived metrics
-  const campaigns = Object.values(campaignMap).map((c) => ({
-    ...c,
-    cpl: c.qualifiedLeads > 0 ? c.totalSpend / c.qualifiedLeads : 0,
-    costPerMeeting: c.qualifiedMeetings > 0 ? c.totalSpend / c.qualifiedMeetings : 0,
-    adCount: c.ads.length,
-  }));
+  // Merge leads/meetings from campaign-level pipeline stats (directly from sheets, no ad-name matching)
+  // Fall back to summing per-ad stats if campaign stats not available
+  const campaigns = Object.values(campaignMap).map((c) => {
+    // Try to find matching campaign stats (fuzzy match by word overlap)
+    let pipelineStats = campaignPipelineStats[c.campaignName];
+    if (!pipelineStats) {
+      // Fuzzy match: find the campaign stats entry with the most word overlap
+      const campaignWords = c.campaignName.toLowerCase().split(/[\s|,\-–—/]+/).filter((w) => w.length >= 3);
+      let bestMatch = null;
+      let bestScore = 0;
+      for (const [name, stats] of Object.entries(campaignPipelineStats)) {
+        const statsWords = name.toLowerCase().split(/[\s|,\-–—/]+/).filter((w) => w.length >= 3);
+        const overlap = campaignWords.filter((w) => statsWords.includes(w)).length;
+        if (overlap > bestScore && overlap >= 2) {
+          bestScore = overlap;
+          bestMatch = stats;
+        }
+      }
+      pipelineStats = bestMatch;
+    }
+
+    const totalLeads = pipelineStats?.leads || c.ads.reduce((sum, a) => sum + (a.totalLeads || 0), 0);
+    const qualifiedLeads = pipelineStats?.qualifiedLeads || c.ads.reduce((sum, a) => sum + (a.qualifiedLeads || 0), 0);
+    const meetings = pipelineStats?.meetingsBooked || c.ads.reduce((sum, a) => sum + (a.meetings || 0), 0);
+    const qualifiedMeetings = pipelineStats?.qualifiedMeetings || c.ads.reduce((sum, a) => sum + (a.qualifiedMeetings || 0), 0);
+
+    return {
+      ...c,
+      totalLeads,
+      qualifiedLeads,
+      meetings,
+      qualifiedMeetings,
+      strategyCalls: pipelineStats?.strategyCalls || 0,
+      closed: pipelineStats?.closed || 0,
+      cpl: qualifiedLeads > 0 ? c.totalSpend / qualifiedLeads : 0,
+      costPerMeeting: qualifiedMeetings > 0 ? c.totalSpend / qualifiedMeetings : 0,
+      adCount: c.ads.length,
+    };
+  });
 
   const handleSort = (field) => {
     if (sortBy === field) {
