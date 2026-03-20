@@ -75,24 +75,30 @@ export default function ClientPage({ params }) {
   const adPipelineStats = leadsData?.adPipelineStats || {};
 
   // Enrich ads with pipeline data
-  // Try composite key (campaign+ad) first, fall back to summing all entries matching just adName
+  // Try composite key first, then fuzzy campaign match, then adName-only (single match only)
   const getAdStats = (adName, campaignName) => {
     const compositeKey = `${campaignName || 'Unknown'}|||${adName || 'Unknown'}`;
     if (adPipelineStats[compositeKey]) return adPipelineStats[compositeKey];
-    // Fallback: find all entries matching this adName and sum them
+
+    // Fallback: find entries matching this adName
     const matches = Object.values(adPipelineStats).filter((s) => s.adName === adName);
     if (matches.length === 0) return {};
     if (matches.length === 1) return matches[0];
-    // Sum across campaigns (when campaign names differ between sheet and Meta)
-    return matches.reduce((acc, s) => ({
-      leads: (acc.leads || 0) + s.leads,
-      qualifiedLeads: (acc.qualifiedLeads || 0) + s.qualifiedLeads,
-      pickedUp: (acc.pickedUp || 0) + s.pickedUp,
-      meetingsBooked: (acc.meetingsBooked || 0) + s.meetingsBooked,
-      qualifiedMeetings: (acc.qualifiedMeetings || 0) + s.qualifiedMeetings,
-      strategyCalls: (acc.strategyCalls || 0) + s.strategyCalls,
-      closed: (acc.closed || 0) + s.closed,
-    }), {});
+
+    // Multiple matches (same ad name, different campaigns) — try fuzzy campaign match
+    // Compare significant words between Meta campaign name and sheet campaign name
+    const metaWords = (campaignName || '').toLowerCase().split(/[\s|,\-–—/]+/).filter((w) => w.length >= 3);
+    let bestMatch = null;
+    let bestScore = 0;
+    for (const m of matches) {
+      const sheetWords = (m.campaignName || '').toLowerCase().split(/[\s|,\-–—/]+/).filter((w) => w.length >= 3);
+      const overlap = metaWords.filter((w) => sheetWords.includes(w)).length;
+      if (overlap > bestScore) {
+        bestScore = overlap;
+        bestMatch = m;
+      }
+    }
+    return bestMatch || {};
   };
 
   const ads = rawAds.map((ad) => {
