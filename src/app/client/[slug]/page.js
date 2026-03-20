@@ -74,10 +74,29 @@ export default function ClientPage({ params }) {
   const leads = leadsData?.leads || [];
   const adPipelineStats = leadsData?.adPipelineStats || {};
 
-  // Enrich ads with pipeline data (key by campaign+ad to handle same ad names across campaigns)
+  // Enrich ads with pipeline data
+  // Try composite key (campaign+ad) first, fall back to summing all entries matching just adName
+  const getAdStats = (adName, campaignName) => {
+    const compositeKey = `${campaignName || 'Unknown'}|||${adName || 'Unknown'}`;
+    if (adPipelineStats[compositeKey]) return adPipelineStats[compositeKey];
+    // Fallback: find all entries matching this adName and sum them
+    const matches = Object.values(adPipelineStats).filter((s) => s.adName === adName);
+    if (matches.length === 0) return {};
+    if (matches.length === 1) return matches[0];
+    // Sum across campaigns (when campaign names differ between sheet and Meta)
+    return matches.reduce((acc, s) => ({
+      leads: (acc.leads || 0) + s.leads,
+      qualifiedLeads: (acc.qualifiedLeads || 0) + s.qualifiedLeads,
+      pickedUp: (acc.pickedUp || 0) + s.pickedUp,
+      meetingsBooked: (acc.meetingsBooked || 0) + s.meetingsBooked,
+      qualifiedMeetings: (acc.qualifiedMeetings || 0) + s.qualifiedMeetings,
+      strategyCalls: (acc.strategyCalls || 0) + s.strategyCalls,
+      closed: (acc.closed || 0) + s.closed,
+    }), {});
+  };
+
   const ads = rawAds.map((ad) => {
-    const key = `${ad.campaignName || 'Unknown'}|||${ad.adName || 'Unknown'}`;
-    const stats = adPipelineStats[key] || {};
+    const stats = getAdStats(ad.adName, ad.campaignName);
     return {
       ...ad,
       meetings: stats.meetingsBooked || 0,
