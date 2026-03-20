@@ -73,7 +73,44 @@ export default function ClientPage({ params }) {
   const pipeline = leadsData?.pipeline;
   const leads = leadsData?.leads || [];
   const adPipelineStats = leadsData?.adPipelineStats || {};
-  const campaignPipelineStats = leadsData?.campaignPipelineStats || {};
+
+  // Build ad-name-to-campaign lookup from Meta ads (source of truth for campaign assignment)
+  const adToCampaign = {};
+  rawAds.forEach((ad) => {
+    if (ad.adName && ad.campaignName) {
+      adToCampaign[ad.adName] = ad.campaignName;
+    }
+  });
+
+  // Build campaign pipeline stats locally, using Meta's ad-to-campaign mapping
+  // to assign campaigns to leads that have ad_name but no campaign_name
+  const campaignPipelineStats = {};
+  leads.forEach((lead) => {
+    let campaignName = lead.campaignName;
+    if (!campaignName && lead.adName) {
+      campaignName = adToCampaign[lead.adName] || '';
+    }
+    campaignName = campaignName || 'Unknown';
+    if (!campaignPipelineStats[campaignName]) {
+      campaignPipelineStats[campaignName] = {
+        campaignName,
+        leads: 0,
+        qualifiedLeads: 0,
+        pickedUp: 0,
+        meetingsBooked: 0,
+        qualifiedMeetings: 0,
+        strategyCalls: 0,
+        closed: 0,
+      };
+    }
+    campaignPipelineStats[campaignName].leads++;
+    if (lead.qualified) campaignPipelineStats[campaignName].qualifiedLeads++;
+    if (lead.pickedUp) campaignPipelineStats[campaignName].pickedUp++;
+    if (lead.meetingBooked) campaignPipelineStats[campaignName].meetingsBooked++;
+    if (lead.qualifiedMeeting) campaignPipelineStats[campaignName].qualifiedMeetings++;
+    if (lead.strategyCall) campaignPipelineStats[campaignName].strategyCalls++;
+    if (lead.closed) campaignPipelineStats[campaignName].closed++;
+  });
 
   // Enrich ads with pipeline data
   // Try composite key first, then fuzzy campaign match, then adName-only (single match only)
