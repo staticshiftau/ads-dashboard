@@ -112,35 +112,39 @@ export default function ClientPage({ params }) {
     if (lead.closed) campaignPipelineStats[campaignName].closed++;
   });
 
-  // Enrich ads with pipeline data
-  // Try composite key first, then fuzzy campaign match, then adName-only (single match only)
-  const getAdStats = (adName, campaignName) => {
-    const compositeKey = `${campaignName || 'Unknown'}|||${adName || 'Unknown'}`;
-    if (adPipelineStats[compositeKey]) return adPipelineStats[compositeKey];
-
-    // Fallback: find entries matching this adName
-    const matches = Object.values(adPipelineStats).filter((s) => s.adName === adName);
-    if (matches.length === 0) return {};
-    if (matches.length === 1) return matches[0];
-
-    // Multiple matches (same ad name, different campaigns) — try fuzzy campaign match
-    // Compare significant words between Meta campaign name and sheet campaign name
-    const metaWords = (campaignName || '').toLowerCase().split(/[\s|,\-–—/]+/).filter((w) => w.length >= 3);
-    let bestMatch = null;
-    let bestScore = 0;
-    for (const m of matches) {
-      const sheetWords = (m.campaignName || '').toLowerCase().split(/[\s|,\-–—/]+/).filter((w) => w.length >= 3);
-      const overlap = metaWords.filter((w) => sheetWords.includes(w)).length;
-      if (overlap > bestScore) {
-        bestScore = overlap;
-        bestMatch = m;
-      }
+  // Build per-ad pipeline stats locally using Meta's ad-to-campaign mapping
+  // This correctly assigns leads that have ad_name but no campaign_name
+  const localAdStats = {};
+  leads.forEach((lead) => {
+    const adName = lead.adName || 'Unknown';
+    // Use Meta's mapping to resolve campaign for leads missing campaign_name
+    let campaignName = lead.campaignName || adToCampaign[adName] || 'Unknown';
+    const key = `${campaignName}|||${adName}`;
+    if (!localAdStats[key]) {
+      localAdStats[key] = {
+        adName,
+        campaignName,
+        leads: 0,
+        qualifiedLeads: 0,
+        pickedUp: 0,
+        meetingsBooked: 0,
+        qualifiedMeetings: 0,
+        strategyCalls: 0,
+        closed: 0,
+      };
     }
-    return bestMatch || {};
-  };
+    localAdStats[key].leads++;
+    if (lead.qualified) localAdStats[key].qualifiedLeads++;
+    if (lead.pickedUp) localAdStats[key].pickedUp++;
+    if (lead.meetingBooked) localAdStats[key].meetingsBooked++;
+    if (lead.qualifiedMeeting) localAdStats[key].qualifiedMeetings++;
+    if (lead.strategyCall) localAdStats[key].strategyCalls++;
+    if (lead.closed) localAdStats[key].closed++;
+  });
 
   const ads = rawAds.map((ad) => {
-    const stats = getAdStats(ad.adName, ad.campaignName);
+    const key = `${ad.campaignName || 'Unknown'}|||${ad.adName || 'Unknown'}`;
+    const stats = localAdStats[key] || {};
     return {
       ...ad,
       meetings: stats.meetingsBooked || 0,
