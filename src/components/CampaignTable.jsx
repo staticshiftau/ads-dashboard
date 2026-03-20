@@ -29,26 +29,31 @@ export default function CampaignTable({ ads, showClient = false, campaignPipelin
     c.totalLinkClicks += ad.totalLinkClicks || 0;
   });
 
-  // Merge leads/meetings from campaign-level pipeline stats (directly from sheets, no ad-name matching)
-  // Fall back to summing per-ad stats if campaign stats not available
+  // Merge leads/meetings from campaign-level pipeline stats (directly from sheets)
+  // Track which campaign stats have been matched so we can add unmatched ones
+  const matchedCampaignStats = new Set();
+
   const campaigns = Object.values(campaignMap).map((c) => {
-    // Try to find matching campaign stats (fuzzy match by word overlap)
+    // Try exact match first, then fuzzy match by word overlap
     let pipelineStats = campaignPipelineStats[c.campaignName];
+    let matchedKey = pipelineStats ? c.campaignName : null;
+
     if (!pipelineStats) {
-      // Fuzzy match: find the campaign stats entry with the most word overlap
       const campaignWords = c.campaignName.toLowerCase().split(/[\s|,\-–—/]+/).filter((w) => w.length >= 3);
-      let bestMatch = null;
       let bestScore = 0;
       for (const [name, stats] of Object.entries(campaignPipelineStats)) {
+        if (name === 'Unknown') continue; // handle Unknown separately
         const statsWords = name.toLowerCase().split(/[\s|,\-–—/]+/).filter((w) => w.length >= 3);
         const overlap = campaignWords.filter((w) => statsWords.includes(w)).length;
         if (overlap > bestScore && overlap >= 2) {
           bestScore = overlap;
-          bestMatch = stats;
+          pipelineStats = stats;
+          matchedKey = name;
         }
       }
-      pipelineStats = bestMatch;
     }
+
+    if (matchedKey) matchedCampaignStats.add(matchedKey);
 
     const totalLeads = pipelineStats?.leads || c.ads.reduce((sum, a) => sum + (a.totalLeads || 0), 0);
     const qualifiedLeads = pipelineStats?.qualifiedLeads || c.ads.reduce((sum, a) => sum + (a.qualifiedLeads || 0), 0);
@@ -68,6 +73,30 @@ export default function CampaignTable({ ads, showClient = false, campaignPipelin
       adCount: c.ads.length,
     };
   });
+
+  // Add unmatched leads (campaign_name was empty in the sheet) as a visible row
+  for (const [name, stats] of Object.entries(campaignPipelineStats)) {
+    if (!matchedCampaignStats.has(name) && stats.leads > 0) {
+      campaigns.push({
+        campaignName: name === 'Unknown' ? 'Leads without campaign data' : name,
+        clientName: '',
+        clientSlug: '',
+        ads: [],
+        totalSpend: 0,
+        totalLeads: stats.leads,
+        qualifiedLeads: stats.qualifiedLeads,
+        totalImpressions: 0,
+        totalLinkClicks: 0,
+        meetings: stats.meetingsBooked,
+        qualifiedMeetings: stats.qualifiedMeetings,
+        strategyCalls: stats.strategyCalls,
+        closed: stats.closed,
+        cpl: 0,
+        costPerMeeting: 0,
+        adCount: 0,
+      });
+    }
+  }
 
   const handleSort = (field) => {
     if (sortBy === field) {
