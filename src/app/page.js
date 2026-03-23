@@ -74,6 +74,9 @@ export default function Home() {
             ...ad,
             clientName: d.client.name,
             clientSlug: d.client.slug,
+            // Sheet overrides campaign/adset grouping and lead counts
+            campaignName: stats.campaignName || ad.campaignName,
+            adSetName: stats.adSetName || ad.adSetName,
             totalLeads: sheetLeads,
             cpl: sheetLeads > 0 ? ad.totalSpend / sheetLeads : 0,
             meetings: stats.meetingsBooked || 0,
@@ -474,7 +477,7 @@ export default function Home() {
                   key={i}
                   client={d.client}
                   summary={d.summary}
-                  ads={d.ads}
+                  ads={allAds.filter((a) => a.clientSlug === d.client.slug)}
                   pipelineData={leadsData?.clientPipelines?.[d.client.slug]}
                   days={days}
                 />
@@ -499,7 +502,7 @@ export default function Home() {
                 </div>
                 <ClientFilter />
               </div>
-              <CampaignTable ads={filteredAds} showClient={filterClient === 'all'} />
+              <CampaignTable ads={filteredAds} showClient={filterClient === 'all'} campaignPipelineStats={leadsData?.campaignPipelineStats || {}} />
             </div>
           )}
 
