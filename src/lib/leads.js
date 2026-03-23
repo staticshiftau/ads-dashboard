@@ -41,7 +41,7 @@ const LEADS_SHEETS = [
  * Fetch raw leads from Google Sheet via gviz API
  */
 async function fetchLeadsSheet(sheetId, sheetTab) {
-  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetTab)}`;
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetTab)}&_=${Date.now()}`;
   const res = await fetch(url, {
     cache: 'no-store',
     headers: {

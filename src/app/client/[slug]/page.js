@@ -140,25 +140,28 @@ export default function ClientPage({ params }) {
   });
 
   // Merge: Meta ads get sheet lead/pipeline data
-  // For each Meta ad, find the matching sheet entry by ad name + campaign
   const ads = rawAds.map((ad) => {
     const entries = adNameIndex[ad.adName] || [];
     let stats = {};
+    let overrideCampaign = null;
+    let overrideAdSet = null;
 
     if (entries.length === 1) {
-      // Ad name unique to one campaign — use it directly
+      // Ad name unique to one campaign — safe to override campaign from sheet
       stats = entries[0];
+      overrideCampaign = stats.campaignName;
+      overrideAdSet = stats.adSetName;
     } else if (entries.length > 1) {
-      // Same ad name in multiple campaigns — match by campaign name
-      stats = entries.find((e) => e.campaignName === ad.campaignName) || entries[0];
+      // Same ad in multiple campaigns — match by campaign name, DON'T override
+      // (overriding would merge all copies under one campaign)
+      stats = entries.find((e) => e.campaignName === ad.campaignName) || {};
     }
 
     const sheetLeads = stats.leads || 0;
     return {
       ...ad,
-      // Sheet overrides campaign/adset (falls back to Meta if no leads)
-      campaignName: stats.campaignName || ad.campaignName,
-      adSetName: stats.adSetName || ad.adSetName,
+      campaignName: overrideCampaign || ad.campaignName,
+      adSetName: overrideAdSet || ad.adSetName,
       totalLeads: sheetLeads,
       cpl: sheetLeads > 0 ? ad.totalSpend / sheetLeads : 0,
       meetings: stats.meetingsBooked || 0,
