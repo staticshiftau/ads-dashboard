@@ -23,6 +23,7 @@ export default function ClientPage({ params }) {
   const [days, setDays] = useState(30);
   const [view, setView] = useState('overview'); // 'overview' | 'campaigns' | 'pipeline' | 'ads'
   const [qualFilter, setQualFilter] = useState('all'); // 'all' | 'qualified' | 'non-qualified'
+  const [showZeroLeadAds, setShowZeroLeadAds] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
 
   // Custom date range
@@ -511,7 +512,7 @@ export default function ClientPage({ params }) {
                     )}
                   </div>
 
-                  {/* Ads Needing Attention */}
+                  {/* Ads Needing Attention — collapsible */}
                   <div
                     className="glass-card p-4"
                     style={{
@@ -521,17 +522,32 @@ export default function ClientPage({ params }) {
                           : 'var(--color-border)',
                     }}
                   >
-                    <div className="flex items-center gap-2 mb-3">
-                      <span
-                        className="w-2 h-2 rounded-full"
-                        style={{ background: 'var(--color-red)' }}
-                      />
-                      <h3 className="text-sm font-semibold">
-                        Need Replacement ({zeroLeadAds.length})
-                      </h3>
+                    <div
+                      className="flex items-center justify-between cursor-pointer"
+                      onClick={() => setShowZeroLeadAds(!showZeroLeadAds)}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="w-2 h-2 rounded-full"
+                          style={{ background: 'var(--color-red)' }}
+                        />
+                        <h3 className="text-sm font-semibold">
+                          Need Replacement ({zeroLeadAds.length})
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {!showZeroLeadAds && zeroLeadAds.length > 0 && (
+                          <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                            ${zeroLeadAds.reduce((s, a) => s + a.totalSpend, 0).toFixed(2)} total spent
+                          </span>
+                        )}
+                        <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+                          {showZeroLeadAds ? '▲' : '▼'}
+                        </span>
+                      </div>
                     </div>
-                    {zeroLeadAds.length > 0 ? (
-                      <div className="space-y-2">
+                    {showZeroLeadAds && zeroLeadAds.length > 0 && (
+                      <div className="space-y-2 mt-3">
                         {zeroLeadAds
                           .sort((a, b) => b.totalSpend - a.totalSpend)
                           .map((ad, i) => (
@@ -554,7 +570,8 @@ export default function ClientPage({ params }) {
                             </div>
                           ))}
                       </div>
-                    ) : (
+                    )}
+                    {zeroLeadAds.length === 0 && (
                       <div
                         className="text-xs py-3"
                         style={{ color: 'var(--color-text-muted)' }}

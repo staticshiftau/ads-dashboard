@@ -96,8 +96,8 @@ export async function fetchAllLeads() {
   results.forEach((r) => {
     if (r.status !== 'fulfilled') return;
     r.value.forEach((lead) => {
-      // Dedup by phone + created_time (more reliable than email)
-      const key = `${lead.phone || lead.email || ''}_${lead.created_time || ''}`;
+      // Dedup per-client by phone + created_time (scoped so cross-tab leads don't collide)
+      const key = `${lead._clientSlug}_${lead.phone || lead.email || ''}_${lead.created_time || ''}`;
       if (!seen.has(key)) {
         seen.add(key);
         allLeads.push(lead);
