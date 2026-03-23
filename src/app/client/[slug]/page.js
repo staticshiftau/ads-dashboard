@@ -396,7 +396,7 @@ export default function ClientPage({ params }) {
             <MetricCard
               label="Qualified Leads"
               value={pipeline?.qualifiedLeads || 0}
-              subtext={`${summary?.totalLeads || 0} total`}
+              subtext={`${pipeline?.total || 0} total`}
               color={
                 pipeline?.qualifiedLeads > 0
                   ? 'var(--color-green)'
