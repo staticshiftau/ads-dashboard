@@ -262,12 +262,27 @@ export default function ClientPage({ params }) {
             </p>
           )}
           {lastUpdated && (
-            <p
-              className="text-xs mt-0.5"
-              style={{ color: 'var(--color-text-muted)' }}
-            >
-              Last updated: {lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-            </p>
+            <div className="flex items-center gap-3 mt-0.5">
+              <p
+                className="text-xs"
+                style={{ color: 'var(--color-text-muted)' }}
+              >
+                Last updated: {lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+              </p>
+              {data?.metaStatus && (
+                <div className="flex items-center gap-1">
+                  <span
+                    className="w-1.5 h-1.5 rounded-full inline-block"
+                    style={{
+                      background: data.metaStatus === 'ok' ? 'var(--color-green)' : 'var(--color-red)',
+                    }}
+                  />
+                  <span className="text-[10px]" style={{ color: data.metaStatus === 'ok' ? 'var(--color-green)' : 'var(--color-red)' }}>
+                    {data.metaStatus === 'ok' ? 'Meta connected' : 'Meta sync failed'}
+                  </span>
+                </div>
+              )}
+            </div>
           )}
         </div>
         <div className="flex items-center gap-3 flex-wrap">

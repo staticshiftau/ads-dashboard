@@ -34,6 +34,8 @@ async function fetchClientAds(client, days, { since, until } = {}) {
       summary: { ...EMPTY_SUMMARY },
       ads: [],
       rawRows: [],
+      metaStatus: 'no_account',
+      metaFetchedAt: null,
     };
   }
 
@@ -50,6 +52,8 @@ async function fetchClientAds(client, days, { since, until } = {}) {
       ads: [],
       rawRows: [],
       error: 'Failed to fetch from Meta API',
+      metaStatus: 'error',
+      metaFetchedAt: new Date().toISOString(),
     };
   }
 
@@ -72,6 +76,8 @@ async function fetchClientAds(client, days, { since, until } = {}) {
     summary,
     ads,
     rawRows: rows,
+    metaStatus: 'ok',
+    metaFetchedAt: new Date().toISOString(),
   };
 }
 

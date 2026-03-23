@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 
-export default function ClientCard({ client, summary, ads, pipelineData, days }) {
+export default function ClientCard({ client, summary, ads, pipelineData, days, metaStatus, metaFetchedAt }) {
   const sheetLeads = pipelineData?.leadCount || 0;
   const hasLeads = sheetLeads > 0;
   const leadingAds = ads ? ads.filter((a) => a.totalLeads > 0).length : 0;
@@ -175,14 +175,29 @@ export default function ClientCard({ client, summary, ads, pipelineData, days })
               )}
             </div>
 
-            {/* Data coverage */}
-            <div
-              className="text-[10px] mt-2"
-              style={{ color: 'var(--color-text-muted)' }}
-            >
-              {summary.totalRows > 0
-                ? `${summary.totalRows} data points`
-                : `No data in last ${days || 30} days`}
+            {/* Meta sync status */}
+            <div className="flex items-center gap-1.5 mt-2">
+              <span
+                className="w-1.5 h-1.5 rounded-full inline-block"
+                style={{
+                  background:
+                    metaStatus === 'ok' ? 'var(--color-green)'
+                      : metaStatus === 'error' ? 'var(--color-red)'
+                        : 'var(--color-text-muted)',
+                }}
+              />
+              <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                {metaStatus === 'ok' && metaFetchedAt
+                  ? `Meta synced ${(() => {
+                      const mins = Math.round((Date.now() - new Date(metaFetchedAt).getTime()) / 60000);
+                      return mins < 1 ? 'just now' : `${mins}m ago`;
+                    })()}`
+                  : metaStatus === 'error'
+                    ? 'Meta sync failed'
+                    : metaStatus === 'no_account'
+                      ? 'No Meta account'
+                      : `${summary.totalRows} data points`}
+              </span>
             </div>
           </>
         ) : (

@@ -480,6 +480,8 @@ export default function Home() {
                   ads={allAds.filter((a) => a.clientSlug === d.client.slug)}
                   pipelineData={leadsData?.clientPipelines?.[d.client.slug]}
                   days={days}
+                  metaStatus={d.metaStatus}
+                  metaFetchedAt={d.metaFetchedAt}
                 />
               ))}
             </div>
