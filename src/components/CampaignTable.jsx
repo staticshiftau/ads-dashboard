@@ -29,36 +29,19 @@ export default function CampaignTable({ ads, showClient = false, campaignPipelin
     c.totalLinkClicks += ad.totalLinkClicks || 0;
   });
 
-  // Merge leads/meetings from campaign-level pipeline stats (directly from sheets)
-  // Track which campaign stats have been matched so we can add unmatched ones
+  // Merge leads/meetings from campaign-level pipeline stats (from sheet)
+  // Campaign names on ads already come from the sheet, so exact match works
   const matchedCampaignStats = new Set();
 
   const campaigns = Object.values(campaignMap).map((c) => {
-    // Try exact match first, then fuzzy match by word overlap
-    let pipelineStats = campaignPipelineStats[c.campaignName];
-    let matchedKey = pipelineStats ? c.campaignName : null;
+    const pipelineStats = campaignPipelineStats[c.campaignName];
+    if (pipelineStats) matchedCampaignStats.add(c.campaignName);
 
-    if (!pipelineStats) {
-      const campaignWords = c.campaignName.toLowerCase().split(/[\s|,\-–—/]+/).filter((w) => w.length >= 3);
-      let bestScore = 0;
-      for (const [name, stats] of Object.entries(campaignPipelineStats)) {
-        if (name === 'Unknown') continue; // handle Unknown separately
-        const statsWords = name.toLowerCase().split(/[\s|,\-–—/]+/).filter((w) => w.length >= 3);
-        const overlap = campaignWords.filter((w) => statsWords.includes(w)).length;
-        if (overlap > bestScore && overlap >= 2) {
-          bestScore = overlap;
-          pipelineStats = stats;
-          matchedKey = name;
-        }
-      }
-    }
-
-    if (matchedKey) matchedCampaignStats.add(matchedKey);
-
-    const totalLeads = pipelineStats?.leads || c.ads.reduce((sum, a) => sum + (a.totalLeads || 0), 0);
-    const qualifiedLeads = pipelineStats?.qualifiedLeads || c.ads.reduce((sum, a) => sum + (a.qualifiedLeads || 0), 0);
-    const meetings = pipelineStats?.meetingsBooked || c.ads.reduce((sum, a) => sum + (a.meetings || 0), 0);
-    const qualifiedMeetings = pipelineStats?.qualifiedMeetings || c.ads.reduce((sum, a) => sum + (a.qualifiedMeetings || 0), 0);
+    // Use campaign-level pipeline stats if available, otherwise sum per-ad
+    const totalLeads = pipelineStats?.leads ?? c.ads.reduce((sum, a) => sum + (a.totalLeads || 0), 0);
+    const qualifiedLeads = pipelineStats?.qualifiedLeads ?? c.ads.reduce((sum, a) => sum + (a.qualifiedLeads || 0), 0);
+    const meetings = pipelineStats?.meetingsBooked ?? c.ads.reduce((sum, a) => sum + (a.meetings || 0), 0);
+    const qualifiedMeetings = pipelineStats?.qualifiedMeetings ?? c.ads.reduce((sum, a) => sum + (a.qualifiedMeetings || 0), 0);
 
     return {
       ...c,
@@ -74,7 +57,7 @@ export default function CampaignTable({ ads, showClient = false, campaignPipelin
     };
   });
 
-  // Add unmatched leads (campaign_name was empty in the sheet) as a visible row
+  // Add sheet campaigns that have leads but no matching Meta ads
   for (const [name, stats] of Object.entries(campaignPipelineStats)) {
     if (!matchedCampaignStats.has(name) && stats.leads > 0) {
       campaigns.push({

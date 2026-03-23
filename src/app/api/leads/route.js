@@ -58,16 +58,15 @@ export async function GET(request) {
       };
     });
 
-    // 8. Per-ad pipeline breakdown (keyed by campaign+ad to handle same ad names across campaigns)
+    // 8. Per-ad pipeline breakdown (keyed by ad name — sheet is source of truth)
     const adPipelineStats = {};
     leads.forEach((lead) => {
       const adName = lead.adName || 'Unknown';
-      const campaignName = lead.campaignName || 'Unknown';
-      const key = `${campaignName}|||${adName}`;
-      if (!adPipelineStats[key]) {
-        adPipelineStats[key] = {
+      if (!adPipelineStats[adName]) {
+        adPipelineStats[adName] = {
           adName,
-          campaignName,
+          campaignName: lead.campaignName || '',
+          adSetName: lead.adSetName || '',
           leads: 0,
           qualifiedLeads: 0,
           pickedUp: 0,
@@ -77,13 +76,13 @@ export async function GET(request) {
           closed: 0,
         };
       }
-      adPipelineStats[key].leads++;
-      if (lead.qualified) adPipelineStats[key].qualifiedLeads++;
-      if (lead.pickedUp) adPipelineStats[key].pickedUp++;
-      if (lead.meetingBooked) adPipelineStats[key].meetingsBooked++;
-      if (lead.qualifiedMeeting) adPipelineStats[key].qualifiedMeetings++;
-      if (lead.strategyCall) adPipelineStats[key].strategyCalls++;
-      if (lead.closed) adPipelineStats[key].closed++;
+      adPipelineStats[adName].leads++;
+      if (lead.qualified) adPipelineStats[adName].qualifiedLeads++;
+      if (lead.pickedUp) adPipelineStats[adName].pickedUp++;
+      if (lead.meetingBooked) adPipelineStats[adName].meetingsBooked++;
+      if (lead.qualifiedMeeting) adPipelineStats[adName].qualifiedMeetings++;
+      if (lead.strategyCall) adPipelineStats[adName].strategyCalls++;
+      if (lead.closed) adPipelineStats[adName].closed++;
     });
 
     // 9. Per-campaign pipeline breakdown (directly from leads, no ad-name matching needed)

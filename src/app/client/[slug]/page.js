@@ -74,19 +74,41 @@ export default function ClientPage({ params }) {
   const leads = leadsData?.leads || [];
   const adPipelineStats = leadsData?.adPipelineStats || {};
 
-  // Build ad-name-to-campaign lookup from Meta ads (source of truth for campaign assignment)
-  const adToCampaign = {};
-  rawAds.forEach((ad) => {
-    if (ad.adName && ad.campaignName) {
-      adToCampaign[ad.adName] = ad.campaignName;
+  // --- Sheet = source of truth for leads, campaign/adset/ad attribution ---
+  // --- Meta API = source of truth for spend, impressions, clicks, statuses ---
+  // --- Ad name is the only join key between them ---
+
+  // Per-ad stats from sheet (keyed by ad name only — no composite keys)
+  const localAdStats = {};
+  leads.forEach((lead) => {
+    const adName = lead.adName || 'Unknown';
+    if (!localAdStats[adName]) {
+      localAdStats[adName] = {
+        adName,
+        campaignName: lead.campaignName || '',
+        adSetName: lead.adSetName || '',
+        leads: 0,
+        qualifiedLeads: 0,
+        pickedUp: 0,
+        meetingsBooked: 0,
+        qualifiedMeetings: 0,
+        strategyCalls: 0,
+        closed: 0,
+      };
     }
+    localAdStats[adName].leads++;
+    if (lead.qualified) localAdStats[adName].qualifiedLeads++;
+    if (lead.pickedUp) localAdStats[adName].pickedUp++;
+    if (lead.meetingBooked) localAdStats[adName].meetingsBooked++;
+    if (lead.qualifiedMeeting) localAdStats[adName].qualifiedMeetings++;
+    if (lead.strategyCall) localAdStats[adName].strategyCalls++;
+    if (lead.closed) localAdStats[adName].closed++;
   });
 
-  // Build campaign pipeline stats locally, using Meta's ad-to-campaign mapping
-  // as source of truth for campaign grouping (sheet is source of truth for lead counts)
+  // Campaign pipeline stats from sheet (grouped by sheet's campaign_name)
   const campaignPipelineStats = {};
   leads.forEach((lead) => {
-    const campaignName = (lead.adName && adToCampaign[lead.adName]) || lead.campaignName || 'Unknown';
+    const campaignName = lead.campaignName || 'Unknown';
     if (!campaignPipelineStats[campaignName]) {
       campaignPipelineStats[campaignName] = {
         campaignName,
@@ -108,42 +130,16 @@ export default function ClientPage({ params }) {
     if (lead.closed) campaignPipelineStats[campaignName].closed++;
   });
 
-  // Build per-ad pipeline stats locally using Meta's ad-to-campaign mapping
-  // Meta is source of truth for campaign grouping, sheet for lead counts
-  const localAdStats = {};
-  leads.forEach((lead) => {
-    const adName = lead.adName || 'Unknown';
-    // Use Meta's campaign mapping first (correct grouping), fall back to sheet
-    const campaignName = adToCampaign[adName] || lead.campaignName || 'Unknown';
-    const key = `${campaignName}|||${adName}`;
-    if (!localAdStats[key]) {
-      localAdStats[key] = {
-        adName,
-        campaignName,
-        leads: 0,
-        qualifiedLeads: 0,
-        pickedUp: 0,
-        meetingsBooked: 0,
-        qualifiedMeetings: 0,
-        strategyCalls: 0,
-        closed: 0,
-      };
-    }
-    localAdStats[key].leads++;
-    if (lead.qualified) localAdStats[key].qualifiedLeads++;
-    if (lead.pickedUp) localAdStats[key].pickedUp++;
-    if (lead.meetingBooked) localAdStats[key].meetingsBooked++;
-    if (lead.qualifiedMeeting) localAdStats[key].qualifiedMeetings++;
-    if (lead.strategyCall) localAdStats[key].strategyCalls++;
-    if (lead.closed) localAdStats[key].closed++;
-  });
-
+  // Merge: Meta ads get sheet lead/pipeline data, campaign/adset overridden from sheet
   const ads = rawAds.map((ad) => {
-    const key = `${ad.campaignName || 'Unknown'}|||${ad.adName || 'Unknown'}`;
-    const stats = localAdStats[key] || {};
+    const stats = localAdStats[ad.adName] || {};
     const sheetLeads = stats.leads || 0;
     return {
       ...ad,
+      // Sheet overrides campaign/adset grouping (falls back to Meta if no leads)
+      campaignName: stats.campaignName || ad.campaignName,
+      adSetName: stats.adSetName || ad.adSetName,
+      // Sheet lead counts replace Meta's
       totalLeads: sheetLeads,
       cpl: sheetLeads > 0 ? ad.totalSpend / sheetLeads : 0,
       meetings: stats.meetingsBooked || 0,

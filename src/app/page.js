@@ -62,13 +62,13 @@ export default function Home() {
   // Per-ad pipeline stats from leads data
   const adPipelineStats = leadsData?.adPipelineStats || {};
 
-  // Combine all ads across clients for comparison view, enriched with pipeline data
+  // Combine all ads across clients, enriched with sheet pipeline data
+  // Ad name is the join key between Meta (spend) and sheet (leads)
   const allAds =
     data?.flatMap(
       (d) =>
         d.ads?.map((ad) => {
-          const key = `${ad.campaignName || 'Unknown'}|||${ad.adName || 'Unknown'}`;
-          const stats = adPipelineStats[key] || {};
+          const stats = adPipelineStats[ad.adName] || {};
           const sheetLeads = stats.leads || 0;
           return {
             ...ad,
