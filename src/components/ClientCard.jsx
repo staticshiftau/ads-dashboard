@@ -3,11 +3,12 @@
 import Link from 'next/link';
 
 export default function ClientCard({ client, summary, ads, pipelineData, days }) {
-  const hasLeads = summary && summary.totalLeads > 0;
+  const sheetLeads = pipelineData?.leadCount || 0;
+  const hasLeads = sheetLeads > 0;
   const leadingAds = ads ? ads.filter((a) => a.totalLeads > 0).length : 0;
   const zeroLeadAds = ads ? ads.filter((a) => a.totalLeads === 0).length : 0;
   const meetings = pipelineData?.pipeline?.meetingsBooked || 0;
-  const pipelineLeads = pipelineData?.leadCount || 0;
+  const pipelineLeads = sheetLeads;
   const costPerMeeting =
     meetings > 0 && summary?.totalSpend > 0
       ? summary.totalSpend / meetings
@@ -100,7 +101,7 @@ export default function ClientCard({ client, summary, ads, pipelineData, days })
                       : 'var(--color-red)',
                   }}
                 >
-                  {summary.totalLeads}
+                  {sheetLeads}
                 </div>
               </div>
               <div>
@@ -111,7 +112,7 @@ export default function ClientCard({ client, summary, ads, pipelineData, days })
                   CPL
                 </div>
                 <div className="text-sm font-semibold">
-                  {summary.cpl > 0 ? `$${summary.cpl.toFixed(2)}` : '-'}
+                  {sheetLeads > 0 ? `$${(summary.totalSpend / sheetLeads).toFixed(2)}` : '-'}
                 </div>
               </div>
             </div>

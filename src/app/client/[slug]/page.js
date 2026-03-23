@@ -83,14 +83,10 @@ export default function ClientPage({ params }) {
   });
 
   // Build campaign pipeline stats locally, using Meta's ad-to-campaign mapping
-  // to assign campaigns to leads that have ad_name but no campaign_name
+  // as source of truth for campaign grouping (sheet is source of truth for lead counts)
   const campaignPipelineStats = {};
   leads.forEach((lead) => {
-    let campaignName = lead.campaignName;
-    if (!campaignName && lead.adName) {
-      campaignName = adToCampaign[lead.adName] || '';
-    }
-    campaignName = campaignName || 'Unknown';
+    const campaignName = (lead.adName && adToCampaign[lead.adName]) || lead.campaignName || 'Unknown';
     if (!campaignPipelineStats[campaignName]) {
       campaignPipelineStats[campaignName] = {
         campaignName,
@@ -113,12 +109,12 @@ export default function ClientPage({ params }) {
   });
 
   // Build per-ad pipeline stats locally using Meta's ad-to-campaign mapping
-  // This correctly assigns leads that have ad_name but no campaign_name
+  // Meta is source of truth for campaign grouping, sheet for lead counts
   const localAdStats = {};
   leads.forEach((lead) => {
     const adName = lead.adName || 'Unknown';
-    // Use Meta's mapping to resolve campaign for leads missing campaign_name
-    let campaignName = lead.campaignName || adToCampaign[adName] || 'Unknown';
+    // Use Meta's campaign mapping first (correct grouping), fall back to sheet
+    const campaignName = adToCampaign[adName] || lead.campaignName || 'Unknown';
     const key = `${campaignName}|||${adName}`;
     if (!localAdStats[key]) {
       localAdStats[key] = {
@@ -145,8 +141,11 @@ export default function ClientPage({ params }) {
   const ads = rawAds.map((ad) => {
     const key = `${ad.campaignName || 'Unknown'}|||${ad.adName || 'Unknown'}`;
     const stats = localAdStats[key] || {};
+    const sheetLeads = stats.leads || 0;
     return {
       ...ad,
+      totalLeads: sheetLeads,
+      cpl: sheetLeads > 0 ? ad.totalSpend / sheetLeads : 0,
       meetings: stats.meetingsBooked || 0,
       qualifiedMeetings: stats.qualifiedMeetings || 0,
       qualifiedLeads: stats.qualifiedLeads || 0,

@@ -67,16 +67,22 @@ export default function Home() {
     data?.flatMap(
       (d) =>
         d.ads?.map((ad) => {
-          const stats = adPipelineStats[ad.adName] || {};
+          const key = `${ad.campaignName || 'Unknown'}|||${ad.adName || 'Unknown'}`;
+          const stats = adPipelineStats[key] || {};
+          const sheetLeads = stats.leads || 0;
           return {
             ...ad,
             clientName: d.client.name,
             clientSlug: d.client.slug,
+            totalLeads: sheetLeads,
+            cpl: sheetLeads > 0 ? ad.totalSpend / sheetLeads : 0,
             meetings: stats.meetingsBooked || 0,
+            qualifiedLeads: stats.qualifiedLeads || 0,
+            qualifiedMeetings: stats.qualifiedMeetings || 0,
             strategyCalls: stats.strategyCalls || 0,
             closed: stats.closed || 0,
             costPerMeeting:
-              stats.meetingsBooked > 0 ? ad.totalSpend / stats.meetingsBooked : 0,
+              stats.qualifiedMeetings > 0 ? ad.totalSpend / stats.qualifiedMeetings : 0,
           };
         }) || []
     ) || [];
@@ -436,12 +442,12 @@ export default function Home() {
                   className="text-xl font-bold"
                   style={{
                     color:
-                      totals.leads > 0
+                      (pipeline?.total || 0) > 0
                         ? 'var(--color-green)'
                         : 'var(--color-red)',
                   }}
                 >
-                  {totals.leads}
+                  {pipeline?.total || 0}
                 </div>
               </div>
               <div className="glass-card p-4">
@@ -452,8 +458,8 @@ export default function Home() {
                   Avg CPL
                 </div>
                 <div className="text-xl font-bold">
-                  {totals.leads > 0
-                    ? `$${(totals.spend / totals.leads).toFixed(2)}`
+                  {pipeline?.total > 0
+                    ? `$${(totals.spend / pipeline.total).toFixed(2)}`
                     : '-'}
                 </div>
               </div>
