@@ -4,7 +4,7 @@
  */
 export async function fetchSheetData(sheetId, sheetTab = 'Ad Performance') {
   const encodedTab = encodeURIComponent(sheetTab);
-  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodedTab}`;
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodedTab}&headers=1`;
 
   // Retry up to 3 times with exponential backoff (Google Sheets can rate-limit)
   let lastError;

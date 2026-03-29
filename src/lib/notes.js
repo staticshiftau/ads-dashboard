@@ -49,9 +49,11 @@ export async function appendNote({ client, date, note }) {
 
   const { google } = await import('googleapis');
 
-  const auth = new google.auth.JWT(email, null, key, [
-    'https://www.googleapis.com/auth/spreadsheets',
-  ]);
+  const auth = new google.auth.JWT({
+    email,
+    key,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
 
   const sheets = google.sheets({ version: 'v4', auth });
 
