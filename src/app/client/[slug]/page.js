@@ -10,6 +10,7 @@ import SpendLeadsChart from '@/components/SpendLeadsChart';
 import PipelineFunnel from '@/components/PipelineFunnel';
 import LeadsTable from '@/components/LeadsTable';
 import LeadsMeetingsChart from '@/components/LeadsMeetingsChart';
+import CampaignNotes from '@/components/CampaignNotes';
 
 export default function ClientPage({ params }) {
   const { slug } = use(params);
@@ -631,6 +632,11 @@ export default function ClientPage({ params }) {
                   </span>
                 </div>
                 <CampaignTable ads={ads} campaignPipelineStats={campaignPipelineStats} />
+              </div>
+
+              {/* Campaign Notes/Log */}
+              <div className="mb-6">
+                <CampaignNotes clientSlug={slug} />
               </div>
 
               {/* Chart */}
