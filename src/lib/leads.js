@@ -66,7 +66,14 @@ async function fetchLeadsSheet(sheetId, sheetTab) {
       const obj = {};
       row.c.forEach((cell, i) => {
         if (!cols[i]) return;
-        const val = cell ? cell.v : null;
+        let val = cell ? cell.v : null;
+        // Convert Google Date objects like "Date(2026,1,22)" to "2026-02-22"
+        if (val && typeof val === 'string' && val.startsWith('Date(')) {
+          const parts = val.match(/Date\((\d+),(\d+),(\d+)\)/);
+          if (parts) {
+            val = `${parts[1]}-${String(Number(parts[2]) + 1).padStart(2, '0')}-${parts[3].padStart(2, '0')}`;
+          }
+        }
         // Don't overwrite a truthy value with null (handles duplicate column labels)
         if (val != null || !(cols[i] in obj)) {
           obj[cols[i]] = val;
