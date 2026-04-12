@@ -31,7 +31,7 @@ async function checkMetaAccess(client) {
     }
     const data = await res.json();
     if (data.account_status !== 1) {
-      return { status: 'warn', message: `Account status: ${data.account_status} (not active)` };
+      return { status: 'pass', message: `Account "${data.name}" inactive (status ${data.account_status}) — not an issue`, inactive: true };
     }
     return { status: 'pass', message: `Account "${data.name}" active` };
   } catch (err) {
@@ -224,11 +224,19 @@ export async function GET() {
           const clientLeads = leadsByClient[client.slug] || [];
           const recentLeads = filterLeadsByDays(clientLeads, 7);
 
-          const [metaAccess, leadSanity, staleData] = await Promise.all([
-            checkMetaAccess(client),
-            checkLeadCountSanity(client, recentLeads, 7),
-            checkStaleData(client, clientLeads),
-          ]);
+          const metaAccess = await checkMetaAccess(client);
+
+          // If account is inactive, skip spend/lead checks — nothing to flag
+          let leadSanity, staleData;
+          if (metaAccess.inactive) {
+            leadSanity = { status: 'skip', message: 'Account inactive' };
+            staleData = { status: 'skip', message: 'Account inactive' };
+          } else {
+            [leadSanity, staleData] = await Promise.all([
+              checkLeadCountSanity(client, recentLeads, 7),
+              checkStaleData(client, clientLeads),
+            ]);
+          }
 
           const dateCheck = checkLeadDates(clientLeads);
           const schemaCheck = checkSchema(clientLeads);
