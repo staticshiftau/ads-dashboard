@@ -67,9 +67,10 @@ async function fetchLeadsSheet(sheetId, sheetTab) {
       row.c.forEach((cell, i) => {
         if (!cols[i]) return;
         let val = cell ? cell.v : null;
-        // Convert Google Date objects like "Date(2026,1,22)" to "2026-02-22"
+        // Convert Google Date objects to "YYYY-MM-DD"
+        // Handles both Date(year,month,day) and Date(year,month,day,hour,min,sec)
         if (val && typeof val === 'string' && val.startsWith('Date(')) {
-          const parts = val.match(/Date\((\d+),(\d+),(\d+)\)/);
+          const parts = val.match(/Date\((\d+),(\d+),(\d+)(?:,\d+)*\)/);
           if (parts) {
             val = `${parts[1]}-${String(Number(parts[2]) + 1).padStart(2, '0')}-${parts[3].padStart(2, '0')}`;
           }
