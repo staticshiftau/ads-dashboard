@@ -12,12 +12,12 @@ const LEADS_SHEETS = [
   },
   {
     sheetId: '18UReQjJDNgP0976BPiaOjP9DRcxvA6e-Q8SsCiS0aMc',
-    sheetTab: 'Fusion Financial',
+    sheetTab: 'Fusion Financial Group',
     clientSlug: 'fusion-financial-group',
   },
   {
     sheetId: '18UReQjJDNgP0976BPiaOjP9DRcxvA6e-Q8SsCiS0aMc',
-    sheetTab: 'Eddie',
+    sheetTab: 'Eddie Senatore',
     clientSlug: 'eddie-senatore',
   },
   {
