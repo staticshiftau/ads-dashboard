@@ -90,27 +90,31 @@ async function fetchAllPages(url) {
 
 /**
  * Fetch ad statuses for a given Meta ad account.
- * Returns a Map of ad_id -> { name, effective_status }.
+ * Returns a Map of ad_id -> { name, effectiveStatus, campaignName }.
+ * If campaignFilter is set, only ads whose campaign name starts with that string are included.
  */
-export async function fetchMetaAdStatuses(adAccountId) {
+export async function fetchMetaAdStatuses(adAccountId, campaignFilter = null) {
   const token = process.env.META_ACCESS_TOKEN;
   if (!token || !adAccountId) return null;
 
-  const cacheKey = adAccountId;
+  const cacheKey = `${adAccountId}_${campaignFilter || 'all'}`;
   const cached = statusCache[cacheKey];
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return cached.data;
   }
 
-  const url = `${META_BASE_URL}/${adAccountId}/ads?fields=id,name,effective_status&limit=500&access_token=${token}`;
+  const url = `${META_BASE_URL}/${adAccountId}/ads?fields=id,name,effective_status,campaign{name}&limit=500&access_token=${token}`;
   const ads = await fetchAllPages(url);
   if (!ads) return null;
 
   const statusMap = new Map();
   for (const ad of ads) {
+    const campaignName = ad.campaign?.name || '';
+    if (campaignFilter && !campaignName.startsWith(campaignFilter)) continue;
     statusMap.set(ad.id, {
       name: ad.name,
       effectiveStatus: ad.effective_status,
+      campaignName,
     });
   }
 
@@ -122,7 +126,7 @@ export async function fetchMetaAdStatuses(adAccountId) {
  * Fetch ad performance insights directly from Meta API.
  * Returns rows in the same format as Google Sheets data.
  */
-export async function fetchMetaInsights(adAccountId, days = 30, { since: sinceParam, until: untilParam } = {}) {
+export async function fetchMetaInsights(adAccountId, days = 30, { since: sinceParam, until: untilParam, campaignFilter } = {}) {
   const token = process.env.META_ACCESS_TOKEN;
   if (!token || !adAccountId) return null;
 
@@ -139,7 +143,7 @@ export async function fetchMetaInsights(adAccountId, days = 30, { since: sincePa
     untilStr = today.toISOString().split('T')[0];
   }
 
-  const cacheKey = `${adAccountId}_${sinceStr}_${untilStr}`;
+  const cacheKey = `${adAccountId}_${sinceStr}_${untilStr}_${campaignFilter || 'all'}`;
   const cached = insightsCache[cacheKey];
   if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return cached.data;
@@ -149,15 +153,32 @@ export async function fetchMetaInsights(adAccountId, days = 30, { since: sincePa
     JSON.stringify({ since: sinceStr, until: untilStr })
   );
 
-  const url =
+  const baseUrl =
     `${META_BASE_URL}/${adAccountId}/insights` +
-    `?fields=ad_id,ad_name,campaign_name,adset_name,spend,impressions,clicks,actions` +
-    `&level=ad&time_increment=1&limit=500` +
+    `?level=ad&time_increment=1&limit=500` +
     `&time_range=${timeRange}` +
     `&access_token=${token}`;
 
-  const data = await fetchAllPages(url);
-  if (!data) return null;
+  // Spend and actions are fetched separately. On some accounts (Ange's, Oct 2026)
+  // requesting `actions` in the same call makes Meta report most spend as 0.
+  const [metricRows, actionRows] = await Promise.all([
+    fetchAllPages(`${baseUrl}&fields=ad_id,ad_name,campaign_name,adset_name,spend,impressions,clicks`),
+    fetchAllPages(`${baseUrl}&fields=ad_id,actions`),
+  ]);
+  if (!metricRows || !actionRows) return null;
+
+  const actionsByAdDay = new Map(
+    actionRows.map((row) => [`${row.ad_id}|${row.date_start}`, row.actions])
+  );
+  let data = metricRows.map((row) => ({
+    ...row,
+    actions: actionsByAdDay.get(`${row.ad_id}|${row.date_start}`),
+  }));
+
+  // Only keep rows from campaigns matching the client's filter (e.g. shared ad account)
+  if (campaignFilter) {
+    data = data.filter((row) => (row.campaign_name || '').startsWith(campaignFilter));
+  }
 
   // Transform into the format aggregateAds() expects
   const rows = data.map((row) => ({
@@ -230,7 +251,7 @@ export function getNewAdsFromMeta(statusMap, existingAdIds) {
     newAds.push({
       adName: info.name,
       adId: adId,
-      campaignName: '',
+      campaignName: info.campaignName || '',
       adSetName: '',
       status: mapped,
       totalSpend: 0,

@@ -41,8 +41,8 @@ async function fetchClientAds(client, days, { since, until } = {}) {
 
   // Fetch insights and statuses from Meta in parallel
   const [rows, statusMap] = await Promise.all([
-    fetchMetaInsights(client.fbAdAccountId, days, { since, until }),
-    fetchMetaAdStatuses(client.fbAdAccountId),
+    fetchMetaInsights(client.fbAdAccountId, days, { since, until, campaignFilter: client.metaCampaignFilter }),
+    fetchMetaAdStatuses(client.fbAdAccountId, client.metaCampaignFilter),
   ]);
 
   if (!rows) {

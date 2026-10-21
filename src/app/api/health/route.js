@@ -78,7 +78,7 @@ async function checkLeadCountSanity(client, clientLeads, days = 7) {
   if (!client.fbAdAccountId) return { status: 'skip', message: 'No ad account' };
 
   try {
-    const metaRows = await fetchMetaInsights(client.fbAdAccountId, days);
+    const metaRows = await fetchMetaInsights(client.fbAdAccountId, days, { campaignFilter: client.metaCampaignFilter });
     if (!metaRows) return { status: 'warn', message: 'Could not fetch Meta insights' };
 
     const metaLeadCount = metaRows.reduce((sum, r) => sum + (r.Leads || 0), 0);
@@ -137,7 +137,7 @@ async function checkStaleData(client, clientLeads) {
 
   // Check if ads are currently active
   try {
-    const statusMap = await fetchMetaAdStatuses(client.fbAdAccountId);
+    const statusMap = await fetchMetaAdStatuses(client.fbAdAccountId, client.metaCampaignFilter);
     if (!statusMap) return { status: 'warn', message: 'Could not fetch ad statuses' };
 
     const activeCount = [...statusMap.values()].filter(

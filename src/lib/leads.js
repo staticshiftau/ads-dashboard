@@ -12,28 +12,13 @@ const LEADS_SHEETS = [
   },
   {
     sheetId: '18UReQjJDNgP0976BPiaOjP9DRcxvA6e-Q8SsCiS0aMc',
-    sheetTab: 'Fusion Financial Group',
-    clientSlug: 'fusion-financial-group',
+    sheetTab: 'Angela Henderson',
+    clientSlug: 'ange-henderson',
   },
   {
     sheetId: '18UReQjJDNgP0976BPiaOjP9DRcxvA6e-Q8SsCiS0aMc',
-    sheetTab: 'Eddie Senatore',
-    clientSlug: 'eddie-senatore',
-  },
-  {
-    sheetId: '18UReQjJDNgP0976BPiaOjP9DRcxvA6e-Q8SsCiS0aMc',
-    sheetTab: 'Corbel',
-    clientSlug: 'corbel',
-  },
-  {
-    sheetId: '18UReQjJDNgP0976BPiaOjP9DRcxvA6e-Q8SsCiS0aMc',
-    sheetTab: 'Stirling Marketing',
-    clientSlug: 'stirling-marketing',
-  },
-  {
-    sheetId: '18UReQjJDNgP0976BPiaOjP9DRcxvA6e-Q8SsCiS0aMc',
-    sheetTab: 'Homes by Lella',
-    clientSlug: 'homes-by-lella',
+    sheetTab: 'Nine Advisory',
+    clientSlug: 'nine-advisory',
   },
 ];
 
