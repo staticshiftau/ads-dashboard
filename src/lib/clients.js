@@ -28,6 +28,14 @@ export const clients = [
     fbAdAccountId: 'act_543814312127728',
     slackChannelId: 'C0B900AG2SD', // notifications-nine-advisory
   },
+  {
+    slug: 'execlenz',
+    name: 'ExecLenz',
+    sheetId: null,
+    sheetTab: null,
+    fbAdAccountId: 'act_1412191834453486',
+    slackChannelId: 'C0CAS8SJNUC', // notifications-execlenz
+  },
 ];
 
 export function getClient(slug) {

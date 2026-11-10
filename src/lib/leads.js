@@ -20,13 +20,18 @@ const LEADS_SHEETS = [
     sheetTab: 'Nine Advisory',
     clientSlug: 'nine-advisory',
   },
+  {
+    sheetId: '18UReQjJDNgP0976BPiaOjP9DRcxvA6e-Q8SsCiS0aMc',
+    sheetTab: 'ExecLenz',
+    clientSlug: 'execlenz',
+  },
 ];
 
 /**
  * Fetch raw leads from Google Sheet via gviz API
  */
 async function fetchLeadsSheet(sheetId, sheetTab) {
-  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetTab)}&_=${Date.now()}`;
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetTab)}&headers=1&_=${Date.now()}`;
   const res = await fetch(url, {
     cache: 'no-store',
     headers: {
@@ -110,7 +115,14 @@ function parseLead(raw) {
   if (createdTime) {
     if (createdTime.match(/^\d{4}-/)) {
       // ISO format: "2026-02-17T22:08:42+0000"
-      createdDate = createdTime.split('T')[0];
+      // Meta stamps leads in UTC. Bucket by the Sydney date so counts match
+      // the weekly metrics sheets. Date-only values pass through unchanged.
+      const d = createdTime.includes('T')
+        ? new Date(createdTime.replace(/([+-]\d{2})(\d{2})$/, '$1:$2'))
+        : null;
+      createdDate = d && !isNaN(d)
+        ? d.toLocaleDateString('en-CA', { timeZone: 'Australia/Sydney' })
+        : createdTime.split('T')[0];
     } else {
       // DD/MM/YYYY format: "09/03/2026 8:19 PM"
       const parts = createdTime.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
