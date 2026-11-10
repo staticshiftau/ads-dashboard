@@ -421,7 +421,7 @@ export default function ClientPage({ params }) {
       {!loading && !error && data && (
         <>
           {/* Metric Cards — always visible */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-3 mb-6">
             <MetricCard
               label="Total Spend"
               value={`$${summary?.totalSpend?.toFixed(2) || '0'}`}
@@ -441,9 +441,23 @@ export default function ClientPage({ params }) {
               value={pipeline?.qualifiedLeads > 0 && summary?.totalSpend > 0 ? `$${(summary.totalSpend / pipeline.qualifiedLeads).toFixed(2)}` : '-'}
             />
             <MetricCard
+              label="Meetings Booked"
+              value={pipeline?.meetingsBooked || 0}
+              subtext={
+                pipeline?.total > 0
+                  ? `${(((pipeline?.meetingsBooked || 0) / pipeline.total) * 100).toFixed(0)}% of leads`
+                  : undefined
+              }
+              color={
+                pipeline?.meetingsBooked > 0
+                  ? 'var(--color-orange)'
+                  : 'var(--color-text-muted)'
+              }
+            />
+            <MetricCard
               label="Qualified Meetings"
               value={pipeline?.qualifiedMeetings || 0}
-              subtext={`${pipeline?.meetingsBooked || 0} total booked`}
+              subtext={`${pipeline?.unqualifiedMeetings || 0} unqualified`}
               color={
                 pipeline?.qualifiedMeetings > 0
                   ? 'var(--color-orange)'
@@ -451,7 +465,7 @@ export default function ClientPage({ params }) {
               }
             />
             <MetricCard
-              label="Cost / Meeting"
+              label="Cost / Qual. Meeting"
               value={
                 pipeline?.qualifiedMeetings > 0 && summary?.totalSpend > 0
                   ? `$${(summary.totalSpend / pipeline.qualifiedMeetings).toFixed(2)}`

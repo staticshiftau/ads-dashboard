@@ -366,7 +366,7 @@ export default function Home() {
         <>
           {/* Summary Bar */}
           {totals && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 mb-6">
               <div className="glass-card p-4" style={{ border: '1px solid rgba(249,115,22,0.3)' }}>
                 <div
                   className="text-[10px] uppercase tracking-wider font-semibold mb-1"
@@ -384,6 +384,25 @@ export default function Home() {
                   }}
                 >
                   {pipeline?.meetingsBooked || 0}
+                </div>
+              </div>
+              <div className="glass-card p-4" style={{ border: '1px solid rgba(249,115,22,0.3)' }}>
+                <div
+                  className="text-[10px] uppercase tracking-wider font-semibold mb-1"
+                  style={{ color: 'var(--color-orange)' }}
+                >
+                  Qualified Meetings
+                </div>
+                <div
+                  className="text-xl font-bold"
+                  style={{
+                    color:
+                      pipeline?.qualifiedMeetings > 0
+                        ? 'var(--color-orange)'
+                        : 'var(--color-text-muted)',
+                  }}
+                >
+                  {pipeline?.qualifiedMeetings || 0}
                 </div>
               </div>
               <div className="glass-card p-4" style={{ border: '1px solid rgba(249,115,22,0.3)' }}>

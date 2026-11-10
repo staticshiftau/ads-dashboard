@@ -91,7 +91,7 @@ async function fetchAllPages(url) {
 /**
  * Fetch ad statuses for a given Meta ad account.
  * Returns a Map of ad_id -> { name, effectiveStatus, campaignName }.
- * If campaignFilter is set, only ads whose campaign name starts with that string are included.
+ * If campaignFilter is set, only ads whose campaign name contains that string are included.
  */
 export async function fetchMetaAdStatuses(adAccountId, campaignFilter = null) {
   const token = process.env.META_ACCESS_TOKEN;
@@ -110,7 +110,7 @@ export async function fetchMetaAdStatuses(adAccountId, campaignFilter = null) {
   const statusMap = new Map();
   for (const ad of ads) {
     const campaignName = ad.campaign?.name || '';
-    if (campaignFilter && !campaignName.startsWith(campaignFilter)) continue;
+    if (campaignFilter && !campaignName.includes(campaignFilter)) continue;
     statusMap.set(ad.id, {
       name: ad.name,
       effectiveStatus: ad.effective_status,
@@ -177,7 +177,7 @@ export async function fetchMetaInsights(adAccountId, days = 30, { since: sincePa
 
   // Only keep rows from campaigns matching the client's filter (e.g. shared ad account)
   if (campaignFilter) {
-    data = data.filter((row) => (row.campaign_name || '').startsWith(campaignFilter));
+    data = data.filter((row) => (row.campaign_name || '').includes(campaignFilter));
   }
 
   // Transform into the format aggregateAds() expects

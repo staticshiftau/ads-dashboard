@@ -15,10 +15,10 @@ export const clients = [
     sheetTab: null,
     fbAdAccountId: 'act_412201883071384',
     slackChannelId: 'C093TJ273M2', // notifications-ange
-    // Ange's ad account is shared with other agencies. Only track campaigns
-    // Static Shift runs - all of ours start with "SS" ("SS | ...", "SS 2026 | ...",
-    // "SS Retest | ...").
-    metaCampaignFilter: 'SS',
+    // Only the mastermind campaign ("SS | 11/05/26 - Mastermind direct campaign")
+    // shows here (Karl, 2026-11-10). The conference, workshop and retest campaigns
+    // in this account are a different set-up and are left out. Matches on "contains".
+    metaCampaignFilter: 'Mastermind',
   },
   {
     slug: 'nine-advisory',
