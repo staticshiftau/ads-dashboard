@@ -168,7 +168,18 @@ test('every active ad past target: stop-or-rebuild note, not a list', () => {
 test('stop warning at 2x target with no qualified meetings', () => {
   assert.equal(stopWarning({ verdict: actionable, spend: 1000, qualifiedMeetings: 0, targets: T }), true);
   assert.equal(stopWarning({ verdict: actionable, spend: 999, qualifiedMeetings: 0, targets: T }), false);
-  assert.equal(stopWarning({ verdict: actionable, spend: 5000, qualifiedMeetings: 1, targets: T }), false);
+});
+
+test('stop warning also fires with qualified meetings when each costs 2x target or more', () => {
+  // target $500: 1 meeting for $5000 = $5000 each; 3 for $3000 = $1000 each; 3 for $2999 is under 2x
+  assert.equal(stopWarning({ verdict: actionable, spend: 5000, qualifiedMeetings: 1, targets: T }), true);
+  assert.equal(stopWarning({ verdict: actionable, spend: 3000, qualifiedMeetings: 3, targets: T }), true);
+  assert.equal(stopWarning({ verdict: actionable, spend: 2999, qualifiedMeetings: 3, targets: T }), false);
+  assert.equal(stopWarning({ verdict: actionable, spend: 900, qualifiedMeetings: 1, targets: T }), false);
+});
+
+test('a campaign on KPI never gets a stop warning', () => {
+  assert.equal(stopWarning({ verdict: { code: 'on_kpi', actionable: false }, spend: 5000, qualifiedMeetings: 1, targets: T }), false);
 });
 
 test('no stop warning inside the 5-day window or without a target', () => {

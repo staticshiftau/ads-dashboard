@@ -147,7 +147,7 @@ export default function ClientSettings({ slug, onSaved }) {
           <p className="text-[11px] mt-3" style={{ color: 'var(--color-text-muted)' }}>
             Leave a field blank to skip that check. An ad is flagged once it has spent the
             cost per qualified meeting target with no booked meeting. A campaign is flagged
-            at twice that with no qualified meeting.
+            when a qualified meeting is costing twice that or more.
           </p>
         </form>
       )}

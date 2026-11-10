@@ -171,14 +171,17 @@ export function adWarnings({ verdict, ads = [], targets = {}, statusOk, unmatche
 }
 
 /**
- * Should the whole campaign be considered for stopping.
+ * Should the whole campaign be considered for stopping: cost per qualified meeting
+ * at 2x target or worse, whether or not any have been booked.
  */
 export function stopWarning({ verdict, spend, qualifiedMeetings, targets = {} }) {
   if (!verdict) return false;
-  if (verdict.code === 'dont_touch' || verdict.code === 'range_too_short') return false;
+  if (verdict.code === 'dont_touch' || verdict.code === 'range_too_short' || verdict.code === 'on_kpi') return false;
   const target = targets?.costPerQualifiedMeeting;
   if (!has(target)) return false;
-  return spend >= STOP_MULTIPLE * target && qualifiedMeetings === 0;
+  // No qualified meeting: spend alone has reached 2x target.
+  // Some qualified meetings: each one is costing 2x target or more (Karl, 2026-11-10).
+  return spend >= STOP_MULTIPLE * target * Math.max(qualifiedMeetings, 1);
 }
 
 function daysBetween(startIso, todayIso) {

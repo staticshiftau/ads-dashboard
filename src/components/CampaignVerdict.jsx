@@ -126,8 +126,11 @@ function CampaignRow({ c, targets }) {
           <span className="font-semibold" style={{ color: 'var(--color-red)' }}>
             Consider stopping this campaign.
           </span>{' '}
-          {money(c.spend)} spent with no qualified meeting, against a target of{' '}
-          {money(targets?.costPerQualifiedMeeting)} each.{' '}
+          {c.qualifiedMeetings > 0
+            ? `${money(c.costPerQualifiedMeeting)} per qualified meeting (${c.qualifiedMeetings} from ${money(c.spend)})`
+            : `${money(c.spend)} spent with no qualified meeting`}
+          , against a target of {money(targets?.costPerQualifiedMeeting)} each. Try switching
+          off any flagged ads first.{' '}
           <AdsManagerLink href={c.campaignLink}>Open campaign in Ads Manager</AdsManagerLink>
         </div>
       )}
