@@ -48,6 +48,10 @@ async function fetchLeadsSheet(sheetId, sheetTab) {
   const jsonStr = text.replace(/^[^(]*\(/, '').replace(/\);?\s*$/, '');
   const data = JSON.parse(jsonStr);
 
+  // A gviz error (for example a tab that cannot be queried) must not read as "no leads".
+  if (data.status === 'error') {
+    throw new Error('Leads Tracker tab could not be queried');
+  }
   if (!data.table || !data.table.rows) return [];
 
   const cols = data.table.cols.map((c) => c.label || '');
@@ -79,6 +83,15 @@ async function fetchLeadsSheet(sheetId, sheetTab) {
  * Fetch leads from all tracker sheets, dedup by email+phone+time, tag with clientSlug
  */
 export async function fetchAllLeads() {
+  return (await fetchAllLeadsWithStatus()).leads;
+}
+
+/**
+ * Same as fetchAllLeads, but also says which tracker tabs loaded.
+ * tabStatus is { [clientSlug]: 'ok' | 'error' }. A tab that fails to load must not be
+ * read as "this client has no leads" - callers check tabStatus before judging anything.
+ */
+export async function fetchAllLeadsWithStatus() {
   const results = await Promise.allSettled(
     LEADS_SHEETS.map(async (s) => {
       const rows = await fetchLeadsSheet(s.sheetId, s.sheetTab);
@@ -90,9 +103,14 @@ export async function fetchAllLeads() {
 
   const allLeads = [];
   const seen = new Set();
+  const tabStatus = {};
 
-  results.forEach((r) => {
-    if (r.status !== 'fulfilled') return;
+  results.forEach((r, i) => {
+    tabStatus[LEADS_SHEETS[i].clientSlug] = r.status === 'fulfilled' ? 'ok' : 'error';
+    if (r.status !== 'fulfilled') {
+      console.error(`[leads.js] Tab "${LEADS_SHEETS[i].sheetTab}" failed to load:`, r.reason?.message);
+      return;
+    }
     r.value.forEach((lead) => {
       // Dedup per-client by phone + created_time (scoped so cross-tab leads don't collide)
       const key = `${lead._clientSlug}_${lead.phone || lead.email || ''}_${lead.created_time || ''}`;
@@ -103,7 +121,7 @@ export async function fetchAllLeads() {
     });
   });
 
-  return allLeads;
+  return { leads: allLeads, tabStatus };
 }
 
 /**

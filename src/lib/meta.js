@@ -93,17 +93,18 @@ async function fetchAllPages(url) {
  * Returns a Map of ad_id -> { name, effectiveStatus, campaignName }.
  * If campaignFilter is set, only ads whose campaign name contains that string are included.
  */
-export async function fetchMetaAdStatuses(adAccountId, campaignFilter = null) {
+export async function fetchMetaAdStatuses(adAccountId, campaignFilter = null, { fresh = false } = {}) {
   const token = process.env.META_ACCESS_TOKEN;
   if (!token || !adAccountId) return null;
 
   const cacheKey = `${adAccountId}_${campaignFilter || 'all'}`;
   const cached = statusCache[cacheKey];
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+  // `fresh` skips the cache so an ad paused a moment ago shows as paused (Refresh button).
+  if (!fresh && cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
     return cached.data;
   }
 
-  const url = `${META_BASE_URL}/${adAccountId}/ads?fields=id,name,effective_status,campaign{name}&limit=500&access_token=${token}`;
+  const url = `${META_BASE_URL}/${adAccountId}/ads?fields=id,name,effective_status,campaign{id,name}&limit=500&access_token=${token}`;
   const ads = await fetchAllPages(url);
   if (!ads) return null;
 
@@ -115,11 +116,61 @@ export async function fetchMetaAdStatuses(adAccountId, campaignFilter = null) {
       name: ad.name,
       effectiveStatus: ad.effective_status,
       campaignName,
+      campaignId: ad.campaign?.id || null,
     });
   }
 
   statusCache[cacheKey] = { data: statusMap, timestamp: Date.now() };
   return statusMap;
+}
+
+/**
+ * Fetch every campaign in an ad account with its start time.
+ * Returns { [campaignId]: { name, startTime } }, or null if Meta could not be read.
+ * Read-only.
+ */
+const campaignCache = {};
+export async function fetchMetaCampaigns(adAccountId, { fresh = false } = {}) {
+  const token = process.env.META_ACCESS_TOKEN;
+  if (!token || !adAccountId) return null;
+
+  const cached = campaignCache[adAccountId];
+  if (!fresh && cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.data;
+  }
+
+  const url = `${META_BASE_URL}/${adAccountId}/campaigns?fields=id,name,start_time&limit=500&access_token=${token}`;
+  const campaigns = await fetchAllPages(url);
+  if (!campaigns) return null;
+
+  const data = {};
+  for (const c of campaigns) {
+    data[c.id] = { name: c.name, startTime: c.start_time || null };
+  }
+  campaignCache[adAccountId] = { data, timestamp: Date.now() };
+  return data;
+}
+
+/**
+ * The ad account's currency code (e.g. "AUD", "NZD"), or null. Read-only.
+ */
+const currencyCache = {};
+export async function fetchAccountCurrency(adAccountId) {
+  const token = process.env.META_ACCESS_TOKEN;
+  if (!token || !adAccountId) return null;
+  if (currencyCache[adAccountId]) return currencyCache[adAccountId];
+  try {
+    const res = await fetch(
+      `${META_BASE_URL}/${adAccountId}?fields=currency&access_token=${token}`,
+      { signal: AbortSignal.timeout(10000) }
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (json.currency) currencyCache[adAccountId] = json.currency;
+    return json.currency || null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -162,7 +213,7 @@ export async function fetchMetaInsights(adAccountId, days = 30, { since: sincePa
   // Spend and actions are fetched separately. On some accounts (Ange's, Oct 2026)
   // requesting `actions` in the same call makes Meta report most spend as 0.
   const [metricRows, actionRows] = await Promise.all([
-    fetchAllPages(`${baseUrl}&fields=ad_id,ad_name,campaign_name,adset_name,spend,impressions,clicks`),
+    fetchAllPages(`${baseUrl}&fields=ad_id,ad_name,campaign_id,campaign_name,adset_name,spend,impressions,clicks`),
     fetchAllPages(`${baseUrl}&fields=ad_id,actions`),
   ]);
   if (!metricRows || !actionRows) return null;
@@ -186,6 +237,7 @@ export async function fetchMetaInsights(adAccountId, days = 30, { since: sincePa
     'Ad Name': row.ad_name,
     'Ad ID': row.ad_id,
     'Campaign Name': row.campaign_name,
+    'Campaign ID': row.campaign_id,
     'Ad Set Name': row.adset_name,
     Status: 'ACTIVE', // placeholder — will be overridden by status fetch
     Spend: parseFloat(row.spend) || 0,

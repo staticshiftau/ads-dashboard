@@ -12,6 +12,7 @@ import LeadsMeetingsChart from '@/components/LeadsMeetingsChart';
 export default function Home() {
   const [data, setData] = useState(null);
   const [leadsData, setLeadsData] = useState(null);
+  const [verdicts, setVerdicts] = useState(null); // { [slug]: verdict report }, always the last 30 days
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [view, setView] = useState('overview'); // 'overview' | 'campaigns' | 'comparison' | 'pipeline'
@@ -28,9 +29,22 @@ export default function Home() {
     fetchData();
   }, [days, dateMode, customFrom, customTo]);
 
+  // Warning counts on the cards always use the last 30 days, whatever the date picker says.
+  async function fetchVerdicts() {
+    try {
+      const res = await fetch(`/api/verdicts?days=30&t=${Date.now()}`, { cache: 'no-store' });
+      if (!res.ok) return setVerdicts(null);
+      const list = await res.json();
+      setVerdicts(Object.fromEntries(list.map((r) => [r.client.slug, r])));
+    } catch {
+      setVerdicts(null);
+    }
+  }
+
   async function fetchData() {
     setLoading(true);
     setError(null);
+    fetchVerdicts();
     try {
       const t = Date.now();
       let params = `t=${t}`;
@@ -51,6 +65,8 @@ export default function Home() {
       if (leadsRes.ok) {
         const leadsJson = await leadsRes.json();
         setLeadsData(leadsJson);
+      } else {
+        setLeadsData(null);
       }
     } catch (e) {
       setError(e.message);
@@ -501,6 +517,7 @@ export default function Home() {
                   days={days}
                   metaStatus={d.metaStatus}
                   metaFetchedAt={d.metaFetchedAt}
+                  verdict={verdicts?.[d.client.slug]}
                 />
               ))}
             </div>

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import {
-  fetchAllLeads,
+  fetchAllLeadsWithStatus,
   processLeads,
   getPipelineSummary,
   filterLeadsByDays,
@@ -22,7 +22,7 @@ export async function GET(request) {
 
   try {
     // 1. Fetch all leads from tracker sheets (each tab is tagged with clientSlug)
-    const rawLeads = await fetchAllLeads();
+    const { leads: rawLeads, tabStatus } = await fetchAllLeadsWithStatus();
 
     // 2. Process leads (clientSlug comes from sheet tab config)
     let leads = processLeads(rawLeads);
@@ -117,6 +117,7 @@ export async function GET(request) {
       adPipelineStats,
       campaignPipelineStats,
       totalLeads: leads.length,
+      tabStatus,
     }, { headers: headers });
   } catch (error) {
     return NextResponse.json(

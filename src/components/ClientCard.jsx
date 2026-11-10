@@ -2,7 +2,17 @@
 
 import Link from 'next/link';
 
-export default function ClientCard({ client, summary, ads, pipelineData, days, metaStatus, metaFetchedAt }) {
+const VERDICT_STATE_LABEL = {
+  targets_unavailable: 'Targets unavailable',
+  leads_unavailable: 'Leads unavailable',
+  meta_unavailable: 'Meta unavailable',
+};
+
+export default function ClientCard({ client, summary, ads, pipelineData, days, metaStatus, metaFetchedAt, verdict }) {
+  const warningCount = verdict?.state === 'ok' ? verdict.warningCount : 0;
+  const needsTargets =
+    verdict?.state === 'ok' && verdict.campaigns.some((c) => c.verdict.code === 'set_targets');
+  const verdictProblem = verdict && verdict.state !== 'ok' ? VERDICT_STATE_LABEL[verdict.state] : null;
   const sheetLeads = pipelineData?.leadCount || 0;
   const hasLeads = sheetLeads > 0;
   const leadingAds = ads ? ads.filter((a) => a.totalLeads > 0).length : 0;
@@ -21,6 +31,31 @@ export default function ClientCard({ client, summary, ads, pipelineData, days, m
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-sm">{client.name}</h3>
           <div className="flex items-center gap-2">
+            {warningCount > 0 && (
+              <div
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                title="Last 30 days"
+                style={{ background: 'rgba(249,115,22,0.15)', color: 'var(--color-orange)' }}
+              >
+                {warningCount} warning{warningCount === 1 ? '' : 's'}
+              </div>
+            )}
+            {warningCount === 0 && needsTargets && (
+              <div
+                className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                style={{ background: 'rgba(148,163,184,0.15)', color: 'var(--color-text-muted)' }}
+              >
+                Set targets
+              </div>
+            )}
+            {verdictProblem && (
+              <div
+                className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--color-red)' }}
+              >
+                {verdictProblem}
+              </div>
+            )}
             <div
               className="text-[10px] font-medium px-2 py-0.5 rounded-full"
               style={{

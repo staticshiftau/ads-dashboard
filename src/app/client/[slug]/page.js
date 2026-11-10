@@ -11,6 +11,8 @@ import PipelineFunnel from '@/components/PipelineFunnel';
 import LeadsTable from '@/components/LeadsTable';
 import LeadsMeetingsChart from '@/components/LeadsMeetingsChart';
 import CampaignNotes from '@/components/CampaignNotes';
+import CampaignVerdict from '@/components/CampaignVerdict';
+import ClientSettings from '@/components/ClientSettings';
 
 export default function ClientPage({ params }) {
   const { slug } = use(params);
@@ -19,6 +21,8 @@ export default function ClientPage({ params }) {
 
   const [data, setData] = useState(null);
   const [leadsData, setLeadsData] = useState(null);
+  const [verdicts, setVerdicts] = useState(null);
+  const [verdictsLoading, setVerdictsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [days, setDays] = useState(30);
@@ -36,17 +40,37 @@ export default function ClientPage({ params }) {
     fetchData();
   }, [slug, days, dateMode, customFrom, customTo]);
 
-  async function fetchData() {
+  function rangeParams() {
+    let params = `client=${slug}&t=${Date.now()}`;
+    if (dateMode === 'custom' && customFrom && customTo) {
+      params += `&since=${customFrom}&until=${customTo}`;
+    } else {
+      params += `&days=${days}`;
+    }
+    return params;
+  }
+
+  // Verdicts load on their own so a slow or failed verdict never blocks the page.
+  // `fresh` skips the Meta status cache (Refresh button, or after saving targets).
+  async function fetchVerdicts(fresh = false) {
+    setVerdictsLoading(true);
+    try {
+      const res = await fetch(`/api/verdicts?${rangeParams()}${fresh ? '&fresh=1' : ''}`, { cache: 'no-store' });
+      setVerdicts(res.ok ? await res.json() : { state: 'meta_unavailable' });
+    } catch {
+      setVerdicts({ state: 'meta_unavailable' });
+    } finally {
+      setVerdictsLoading(false);
+    }
+  }
+
+  async function fetchData(fresh = false) {
     setLoading(true);
     setError(null);
+    setVerdicts(null);
+    fetchVerdicts(fresh === true);
     try {
-      const t = Date.now();
-      let params = `client=${slug}&t=${t}`;
-      if (dateMode === 'custom' && customFrom && customTo) {
-        params += `&since=${customFrom}&until=${customTo}`;
-      } else {
-        params += `&days=${days}`;
-      }
+      const params = rangeParams();
 
       const [adsRes, leadsRes] = await Promise.all([
         fetch(`/api/campaigns?${params}`, { cache: 'no-store' }),
@@ -60,6 +84,9 @@ export default function ClientPage({ params }) {
       if (leadsRes.ok) {
         const leadsJson = await leadsRes.json();
         setLeadsData(leadsJson);
+      } else {
+        // Do not keep the previous range's leads on screen as if they were current.
+        setLeadsData(null);
       }
       setLastUpdated(new Date());
     } catch (e) {
@@ -376,7 +403,7 @@ export default function ClientPage({ params }) {
           </div>
 
           <button
-            onClick={fetchData}
+            onClick={() => fetchData(true)}
             className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
             style={{
               border: '1px solid var(--color-border)',
@@ -421,7 +448,7 @@ export default function ClientPage({ params }) {
       {!loading && !error && data && (
         <>
           {/* Metric Cards — always visible */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-3 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 2xl:grid-cols-9 gap-3 mb-6">
             <MetricCard
               label="Total Spend"
               value={`$${summary?.totalSpend?.toFixed(2) || '0'}`}
@@ -491,6 +518,9 @@ export default function ClientPage({ params }) {
               }
             />
           </div>
+
+          <CampaignVerdict report={verdicts} loading={verdictsLoading} />
+          <ClientSettings slug={slug} onSaved={() => fetchVerdicts(true)} />
 
           {/* Overview View — original layout */}
           {view === 'overview' && (
